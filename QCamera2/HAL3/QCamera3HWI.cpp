@@ -11680,6 +11680,24 @@ int QCamera3HardwareInterface::initCapabilities(uint32_t cameraId)
         gCamCapability[cameraId]->active_array_size.height = raw_dim.height;
 
         LOGD("override active array size to (%d, %d).", raw_dim.width, raw_dim.height);
+    } else if (gCamCapability[cameraId]->supported_raw_dim_cnt > 0 &&
+            (gCamCapability[cameraId]->raw_dim[0].width <
+                gCamCapability[cameraId]->pixel_array_size.width ||
+             gCamCapability[cameraId]->raw_dim[0].height <
+                gCamCapability[cameraId]->pixel_array_size.height)) {
+        /* The Samsung IMX576 modules deliver RAW only from the binned mode
+         * (2832x2124) while the backend reports the full 5664x4248 array.
+         * Report the arrays in RAW coordinates, like the quadra CFA "full"
+         * picture size mode, so RAW buffers match android.sensor.info.
+         * pixelArraySize (required by DngCreator). Picture sizes stay full. */
+        cam_dimension_t raw_dim = gCamCapability[cameraId]->raw_dim[0];
+        gCamCapability[cameraId]->pixel_array_size = raw_dim;
+        gCamCapability[cameraId]->active_array_size.left   = 0;
+        gCamCapability[cameraId]->active_array_size.top    = 0;
+        gCamCapability[cameraId]->active_array_size.width  = raw_dim.width;
+        gCamCapability[cameraId]->active_array_size.height = raw_dim.height;
+        LOGI("camera %d: arrays reported in RAW size %dx%d", cameraId,
+                raw_dim.width, raw_dim.height);
     }
 
 failed_op:
