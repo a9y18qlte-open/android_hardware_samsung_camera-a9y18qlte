@@ -1671,8 +1671,7 @@ int32_t QCameraPostProcessor::processPPData(mm_camera_super_buf_t *frame)
                 property_get("persist.vendor.camera.dumpmetadata", value, "0");
                 int32_t enabled = atoi(value);
                 if (enabled) {
-                    IF_META_AVAILABLE(tuning_params_t,tuning_ptr,CAM_INTF_META_TUNING_PARAMS,
-                        jpeg_job->metadata){
+                    if (tuning_params_t *tuning_ptr = NULL) { /* SEC: Samsung tuning blob layout unknown */
                             m_parent->dumpMetadataToFile(pOfflineMetadataStream,pOfflineMetaFrame,
                                 (char *)"Offline_isp_meta",tuning_ptr);
                     }

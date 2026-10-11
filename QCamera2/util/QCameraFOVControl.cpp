@@ -556,8 +556,8 @@ int32_t QCameraFOVControl::updateConfigSettings(
         }
 
         // Get the sensor out dimensions
-        cam_sensor_config_t sensorDimMain = {0,0,0};
-        cam_sensor_config_t sensorDimAux  = {0,0,0};
+        cam_sensor_config_t sensorDimMain = {0,0}; /* SEC: no opClock */
+        cam_sensor_config_t sensorDimAux  = {0,0}; /* SEC: no opClock */
         if (paramsMainCam->is_valid[CAM_INTF_PARM_RAW_DIMENSION]) {
             READ_PARAM_ENTRY(paramsMainCam, CAM_INTF_PARM_RAW_DIMENSION, sensorDimMain);
             mDualCamParams.paramsMain.sensorStreamWidth  = sensorDimMain.width;
@@ -2756,7 +2756,7 @@ void QCameraFOVControl::setZoomParam(uint8_t cam_type, cam_zoom_info_t zoomInfo,
             zoomInfo.stream_zoom_info[i].isp_zoom);
     }
     if (isHAL3) {
-        ADD_SET_PARAM_ENTRY_TO_BATCH(params, CAM_INTF_META_USERZOOM, zoomInfo);
+        /* SEC: META_USERZOOM is a 10-byte Samsung type; not set */
     } else {
         ADD_SET_PARAM_ENTRY_TO_BATCH(params, CAM_INTF_PARM_USERZOOM, zoomInfo);
     }

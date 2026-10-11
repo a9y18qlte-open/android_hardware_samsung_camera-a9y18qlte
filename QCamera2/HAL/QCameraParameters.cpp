@@ -11095,8 +11095,8 @@ int32_t QCameraParameters::getStreamDimension(cam_stream_type_t streamType,
 {
     int32_t ret = NO_ERROR;
     memset(&dim, 0, sizeof(cam_dimension_t));
-    int32_t ispMaxWidth = m_pCapability->single_isp_max_size.width;
-    int32_t ispMaxHeight = m_pCapability->single_isp_max_size.height;
+    int32_t ispMaxWidth = SEC_SINGLE_ISP_MAX_SIZE(m_pCapability).width;
+    int32_t ispMaxHeight = SEC_SINGLE_ISP_MAX_SIZE(m_pCapability).height;
 
     switch (streamType) {
     case CAM_STREAM_TYPE_PREVIEW:
@@ -14437,8 +14437,8 @@ uint8_t QCameraParameters::getMobicatMask()
  *==========================================================================*/
 bool QCameraParameters::sendStreamConfigInfo(cam_stream_size_info_t &stream_config_info) {
     int32_t rc = NO_ERROR;
-    cam_sensor_config_t sensor_dim_main = {0,0,0};
-    cam_sensor_config_t sensor_dim_aux  = {0,0,0};
+    cam_sensor_config_t sensor_dim_main = {0,0}; /* SEC: no opClock */
+    cam_sensor_config_t sensor_dim_aux  = {0,0}; /* SEC: no opClock */
 
     if (isDualCamera()) {
         // Get the sensor output dimensions for main and aux cameras.
@@ -17023,8 +17023,8 @@ int32_t QCameraParameters::setCameraControls(uint32_t state, bool bundleSnap,
 void QCameraParameters::setAsymmetricSnapMode()
 {
     int width, height, maxWidth, maxHeight;
-    int32_t ispMaxWidth = m_pCapability->single_isp_max_size.width;
-    int32_t ispMaxHeight = m_pCapability->single_isp_max_size.height;
+    int32_t ispMaxWidth = SEC_SINGLE_ISP_MAX_SIZE(m_pCapability).width;
+    int32_t ispMaxHeight = SEC_SINGLE_ISP_MAX_SIZE(m_pCapability).height;
 
     if (!isDualCamera()) {
         mAsymmetricSnapMode = false;

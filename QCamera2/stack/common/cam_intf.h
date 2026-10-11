@@ -1262,4 +1262,6 @@ static inline void clear_metadata_buffer(metadata_buffer_t *meta)
 }
 #endif
 
+#include "cam_sec_compat.h"
+
 #endif /* __QCAMERA_INTF_H__ */

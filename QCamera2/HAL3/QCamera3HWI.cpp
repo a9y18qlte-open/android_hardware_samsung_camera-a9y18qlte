@@ -597,7 +597,7 @@ QCamera3HardwareInterface::QCamera3HardwareInterface(uint32_t cameraId,
     if (gCamCapability[cameraId]->is_quadracfa_sensor) {
         m_bQuadraCfaSensor = true;
 
-        if (gCamCapability[cameraId]->is_quadracfa_insensor) {
+        if (0 /* SEC: no is_quadracfa_insensor */) {
             m_bInSensorQCFA = true;
         }
 
@@ -1810,7 +1810,7 @@ void QCamera3HardwareInterface::updateTimeStampInPendingBuffers(
 bool QCamera3HardwareInterface::isPPUpscaleNeededForDim(const cam_dimension_t &dim)
 {
     bool ret = false;
-    cam_dimension_t isp_max = gCamCapability[mCameraId]->single_isp_max_size;
+    cam_dimension_t isp_max = SEC_SINGLE_ISP_MAX_SIZE(gCamCapability[mCameraId]);
      if((dim.width > isp_max.width) || (dim.height > isp_max.height))
      {
         ret = true;
@@ -2002,7 +2002,7 @@ END:
  *==========================================================================*/
 cam_dimension_t QCamera3HardwareInterface::getMaxSingleIspRes()
 {
-    return gCamCapability[mCameraId]->single_isp_max_size;
+    return SEC_SINGLE_ISP_MAX_SIZE(gCamCapability[mCameraId]);
 }
 
 /*===========================================================================
@@ -2889,7 +2889,7 @@ int QCamera3HardwareInterface::configureStreamsPerfLocked(
                 {
                     padding_info.width_padding = CAM_PAD_TO_512;
                     padding_info.height_padding = CAM_PAD_TO_512;
-                    padding_info.usage = newStream->usage;
+                    /* SEC: no cam_padding_info_t.usage */
                     mStreamConfigInfo[index].type[stream_index] = CAM_STREAM_TYPE_CALLBACK;
                     if ((m_bIs4KVideo && !isZsl) || (bSmallJpegSize && !isZsl)) {
                         mStreamConfigInfo[index].postprocess_mask[stream_index] =
@@ -5137,8 +5137,7 @@ void QCamera3HardwareInterface::handleMetadataWithLock(
                     property_get("persist.vendor.camera.dumpmetadata", prop, "0");
                     int32_t enabled = atoi(prop);
                     if (enabled) {
-                        IF_META_AVAILABLE(tuning_params_t, tuning_ptr, CAM_INTF_META_TUNING_PARAMS,
-                            metadata) {
+                        if (tuning_params_t *tuning_ptr = NULL) /* SEC: Samsung tuning blob layout unknown */ {
                                 dumpMetadataToFile(*tuning_ptr,mMetaFrameCount,enabled,
                                     "Snapshot",frame_number);
                         }
@@ -7410,7 +7409,7 @@ int QCamera3HardwareInterface::processCaptureRequest(
 #ifdef ENABLE_THROTTLE
             mSettingInfo[0].sensorW = sensor_dim.width;
             mSettingInfo[0].sensorH = sensor_dim.height;
-            mSettingInfo[0].sensorClk = sensor_dim.opClock;
+            mSettingInfo[0].sensorClk = 0; /* SEC: no opClock */
             mSettingInfo[0].hfr = mHFRMode;
             mSettingInfo[0].tnr = m_bTnrEnabled;
             mSettingInfo[0].fd = false;
@@ -7455,7 +7454,7 @@ int QCamera3HardwareInterface::processCaptureRequest(
 #ifdef ENABLE_THROTTLE
                 mSettingInfo[1].sensorW = sensor_dim_aux.width;
                 mSettingInfo[1].sensorH = sensor_dim_aux.height;
-                mSettingInfo[1].sensorClk = sensor_dim_aux.opClock;
+                mSettingInfo[1].sensorClk = 0; /* SEC: no opClock */
                 mSettingInfo[1].hfr = mSettingInfo[0].hfr;
                 mSettingInfo[1].tnr = mSettingInfo[0].tnr;
                 mSettingInfo[1].fd = mSettingInfo[0].fd;
@@ -10359,7 +10358,7 @@ QCamera3HardwareInterface::translateFromHalMetadata(
 
 
 
-    IF_META_AVAILABLE(tuning_params_t, tuning_ptr, CAM_INTF_META_TUNING_PARAMS, metadata) {
+    if (tuning_params_t *tuning_ptr = NULL) /* SEC: Samsung tuning blob layout unknown */ {
         uint8_t tuning_meta_data_blob[sizeof(tuning_params_t)];
         uint8_t *data = (uint8_t *)&tuning_meta_data_blob[0];
         tuning_ptr->tuning_data_version = TUNING_DATA_VERSION;
@@ -11622,8 +11621,7 @@ int QCamera3HardwareInterface::initCapabilities(uint32_t cameraId)
                 sizeof(cam_capability_t));
     }
 
-    if (gCamCapability[cameraId]->is_remosaic_lib_present ||
-            gCamCapability[cameraId]->is_quadracfa_insensor) {
+    if (gCamCapability[cameraId]->is_remosaic_lib_present) { /* SEC: no is_quadracfa_insensor */
         gCamCapability[cameraId]->is_quadracfa_sensor = TRUE;
     }
 

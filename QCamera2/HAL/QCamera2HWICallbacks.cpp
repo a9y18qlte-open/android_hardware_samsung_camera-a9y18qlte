@@ -245,8 +245,7 @@ void QCamera2HardwareInterface::zsl_channel_cb(mm_camera_super_buf_t *recvd_fram
                 if (pStream->isTypeOf(CAM_STREAM_TYPE_METADATA)) {
                     pMetaFrame = frame->bufs[i];
                     if (pMetaFrame != NULL ) {
-                        IF_META_AVAILABLE(tuning_params_t, tuning_ptr, CAM_INTF_META_TUNING_PARAMS,
-                            ((metadata_buffer_t *)pMetaFrame->buffer)) {
+                        if (tuning_params_t *tuning_ptr = NULL) { /* SEC: Samsung tuning blob layout unknown */
                                 pme->dumpMetadataToFile(pStream, pMetaFrame,
                                     (char *) "ZSL_Snapshot",tuning_ptr);
                         }
@@ -450,8 +449,7 @@ void QCamera2HardwareInterface::capture_channel_cb_routine(mm_camera_super_buf_t
                 if (pStream->isTypeOf(CAM_STREAM_TYPE_METADATA)) {
                     pMetaFrame = frame->bufs[i]; //find the metadata
                     if (pMetaFrame != NULL ) {
-                        IF_META_AVAILABLE(tuning_params_t, tuning_ptr, CAM_INTF_META_TUNING_PARAMS,
-                            ((metadata_buffer_t *)pMetaFrame->buffer)) {
+                        if (tuning_params_t *tuning_ptr = NULL) { /* SEC: Samsung tuning blob layout unknown */
                                 pme->dumpMetadataToFile(pStream, pMetaFrame,
                                     (char *) "Snapshot",tuning_ptr);
                         }
@@ -1843,8 +1841,7 @@ void QCamera2HardwareInterface::snapshot_channel_cb_routine(mm_camera_super_buf_
                 if (pStream->isTypeOf(CAM_STREAM_TYPE_METADATA)) {
                     pMetaFrame = super_frame->bufs[i]; //find the metadata
                     if (pMetaFrame != NULL ) {
-                        IF_META_AVAILABLE(tuning_params_t, tuning_ptr, CAM_INTF_META_TUNING_PARAMS,
-                            ((metadata_buffer_t *)pMetaFrame->buffer)) {
+                        if (tuning_params_t *tuning_ptr = NULL) { /* SEC: Samsung tuning blob layout unknown */
                                 pme->dumpMetadataToFile(pStream, pMetaFrame,
                                     (char *) "Snapshot",tuning_ptr);
                         }
@@ -1979,8 +1976,7 @@ void QCamera2HardwareInterface::raw_channel_cb_routine(mm_camera_super_buf_t *su
                 if (pStream->isTypeOf(CAM_STREAM_TYPE_METADATA)) {
                     pMetaFrame = super_frame->bufs[i]; //find the metadata
                     if (pMetaFrame != NULL ) {
-                        IF_META_AVAILABLE(tuning_params_t, tuning_ptr, CAM_INTF_META_TUNING_PARAMS,
-                            ((metadata_buffer_t *)pMetaFrame->buffer)) {
+                        if (tuning_params_t *tuning_ptr = NULL) { /* SEC: Samsung tuning blob layout unknown */
                                 pme->dumpMetadataToFile(pStream, pMetaFrame,
                                     (char *) "raw",tuning_ptr);
                         }
@@ -2372,7 +2368,7 @@ void QCamera2HardwareInterface::metadata_stream_cb_routine(mm_camera_super_buf_t
     }
 
     if (pme->mParameters.getRecordingHintValue() == true) {
-        IF_META_AVAILABLE(tuning_params_t,tuning_ptr,CAM_INTF_META_TUNING_PARAMS,pMetaData) {
+        if (tuning_params_t *tuning_ptr = NULL) /* SEC: Samsung tuning blob layout unknown */ {
         //Dump Tuning data for video
             pme->dumpMetadataToFile(stream,frame,(char *)"Video",tuning_ptr);
         }
