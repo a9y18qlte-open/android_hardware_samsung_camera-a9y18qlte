@@ -32,8 +32,6 @@ cc_library_shared {
         "-DSUPPORT_POWER_HINT_XML",
     ],
     include_dirs: [
-        "device/asus/sdm660-common/camera/mm-image-codec/qexif",
-        "device/asus/sdm660-common/camera/mm-image-codec/qomx_core",
         "hardware/qcom-caf/sdm660/media/libstagefrighthw",
         "hardware/qcom-caf/sdm660/media/mm-core/inc",
         "system/memory/libion/kernel-headers",
@@ -48,6 +46,8 @@ cc_library_shared {
         "HAL/tsMakeuplib/include",
     ],
     header_libs: [
+        "qcamera_qexif_headers",
+        "qcamera_qomx_core_headers",
         "media_plugin_headers",
         "camera_common_headers",
         "display_headers",

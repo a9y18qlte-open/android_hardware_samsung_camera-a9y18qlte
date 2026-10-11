@@ -8,8 +8,8 @@ cc_library_shared {
         "-g",
         "-O0",
     ],
-    include_dirs: ["device/asus/sdm660-common/camera/mm-image-codec/qexif"],
     header_libs: [
+        "qcamera_qexif_headers",
         "libutils_headers",
         "media_plugin_headers",
     ],

@@ -17,14 +17,13 @@ cc_library_shared {
     include_dirs: [
         "system/memory/libion/kernel-headers",
         "system/memory/libion/include",
-        "device/asus/sdm660-common/camera/QCamera2/stack/common",
-        "device/asus/sdm660-common/camera/QCamera2/stack/mm-camera-interface/inc",
-        "device/asus/sdm660-common/camera",
-        "device/asus/sdm660-common/camera/mm-image-codec/qexif",
-        "device/asus/sdm660-common/camera/mm-image-codec/qomx_core",
     ],
     local_include_dirs: ["inc"],
     header_libs: [
+        "camera_common_headers",
+        "qcamera_mm_camera_interface_headers",
+        "qcamera_qexif_headers",
+        "qcamera_qomx_core_headers",
         "libutils_headers",
         "media_plugin_headers",
         "generated_kernel_headers",
