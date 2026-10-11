@@ -748,7 +748,10 @@ cam_format_t QCamera3Channel::getStreamDefaultFormat(cam_stream_type_t type,
             limits. Refer cpp_hw_params.h::CPP_DOWNSCALE_LIMIT_UBWC */
         if (isUBWCEnabled() && (width >= 640) && (height >= 480)) {
             QCamera3HardwareInterface* hal_obj = (QCamera3HardwareInterface*)mUserData;
-            if ((hal_obj->mCommon.isVideoUBWCEnabled())) {
+            /* SEC: the stock video encoder only takes linear NV12; keep video
+             * NV12_VENUS while preview stays UBWC (both linear enables CPP output
+             * duplication, which page-faults on this kernel). */
+            if (false && (hal_obj->mCommon.isVideoUBWCEnabled())) {
                 streamFormat = CAM_FORMAT_YUV_420_NV12_UBWC;
             } else {
                 streamFormat = CAM_FORMAT_YUV_420_NV12_VENUS;
