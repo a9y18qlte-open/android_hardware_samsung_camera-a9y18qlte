@@ -850,6 +850,11 @@ typedef struct cam_stream_info {
 /* SEC: Samsung tuning blob at the head of metadata_data_t; internal layout TBD */
 #define SEC_TUNING_SIZE 328104
 #define SEC_META_TAIL (4 + 413448)
+/* SEC: Samsung 3A "remosaic needed" flag: set when the scene is bright
+ * enough for the in-sensor remosaic mode (stock HAL1 reads it at
+ * metadata + 0xcb050 + 0x34 (valid) and + 0x14b0 (value)) */
+#define SEC_META_REMOSAIC_NEED_VALID_OFFSET 0xcb084
+#define SEC_META_REMOSAIC_NEED_OFFSET       0xcc500
 typedef struct { uint8_t raw[SEC_TUNING_SIZE]; } sec_tuning_params_t;
 
 #define INCLUDE(PARAM_ID,DATATYPE,COUNT)  \

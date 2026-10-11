@@ -594,6 +594,7 @@ QCamera3HardwareInterface::QCamera3HardwareInterface(uint32_t cameraId,
     }
 
     m_bInSensorQCFA = false;
+    m_bSecRemosaicNeed = true;
     if (gCamCapability[cameraId]->is_quadracfa_sensor) {
         m_bQuadraCfaSensor = true;
 
@@ -4754,6 +4755,10 @@ void QCamera3HardwareInterface::handleMetadataWithLock(
 
     //not in flush
     metadata_buffer_t *metadata = (metadata_buffer_t *)metadata_buf->bufs[0]->buffer;
+    if (m_bInSensorQCFA &&
+            ((uint8_t *)metadata)[SEC_META_REMOSAIC_NEED_VALID_OFFSET]) {
+        m_bSecRemosaicNeed = ((uint8_t *)metadata)[SEC_META_REMOSAIC_NEED_OFFSET] != 0;
+    }
     int32_t frame_number_valid, urgent_frame_number_valid;
     uint32_t frame_number, urgent_frame_number;
     int64_t capture_time;
@@ -5624,8 +5629,15 @@ bool QCamera3HardwareInterface::IsQCFASelected(camera3_capture_request *request)
         }
     }
     char property[PROPERTY_VALUE_MAX];
-    property_get("persist.vendor.camera.qcfa.select", property, "1");
+    /* SEC: 0 = never, 1 = always, 2 = when the backend's 3A asks for it
+     * (bright scenes; darker scenes keep the binned mode, like stock) */
+    property_get("persist.vendor.camera.qcfa.select", property,
+            m_bInSensorQCFA ? "2" : "1");
     int selected = atoi(property);
+    if (qcfaReq && selected == 2) {
+        LOGI("remosaic needed from 3A: %d", m_bSecRemosaicNeed);
+        return m_bSecRemosaicNeed;
+    }
     //ret: fasle for upscaling. true for remosaic
     return (qcfaReq && (selected > 0));
 }

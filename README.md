@@ -22,10 +22,10 @@ changes needed to run on them.
 | 4 | Rear depth | Samsung S5K5E9 | 5 MP (2592x1944), f/1.9 |
 
 Working: preview, full-resolution stills (on the IMX576 cameras, sizes
-above 2832x2124 are captured in the sensor's 5664x4248 remosaic mode,
-smaller ones come from the binned mode), video recording, manual ISO /
-exposure / white balance / focus, RAW, flash modes, all five cameras as
-standalone camera IDs.
+above 2832x2124 are captured in the sensor's 5664x4248 remosaic mode in
+bright scenes; smaller sizes and darker scenes use the binned mode),
+video recording, manual ISO / exposure / white balance / focus, RAW,
+flash modes, all five cameras as standalone camera IDs.
 
 Not done: 4K video (the backend reports no 3840x2160 size), logical
 multi-camera, Samsung-only features (Live Focus, etc.).

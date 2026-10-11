@@ -724,6 +724,7 @@ public:
     QCameraFOVControl *m_pFovControl;
     PendingBuffersMap mPendingBuffersMap;
     bool m_bInSensorQCFA;
+    bool m_bSecRemosaicNeed;
     bool mbIsSWMFNRCapture;
     bool isSecureMode() {return m_bIsSecureMode;}
     QCamera3ProcessingChannel *mZSLChannel; //Interface ptr for actual ZSL channel.
