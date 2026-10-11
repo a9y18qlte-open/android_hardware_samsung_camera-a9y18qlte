@@ -12349,31 +12349,6 @@ int QCamera3HardwareInterface::initStaticMetadata(uint32_t cameraId)
     active_array_dim.width = gCamCapability[cameraId]->active_array_size.width;
     active_array_dim.height = gCamCapability[cameraId]->active_array_size.height;
 
-    /*advertise list of input dimensions supported based on below property.
-    By default all sizes upto 5MP will be advertised.
-    Note that the setprop resolution format should be WxH.
-    e.g: adb shell setprop persist.vendor.camera.input.minsize 1280x720
-    To list all supported sizes, setprop needs to be set with "0x0" */
-    cam_dimension_t minInputSize = {2592,1944}; //5MP
-    memset(prop, 0, sizeof(prop));
-    property_get("persist.vendor.camera.input.minsize", prop, "2592x1944");
-    if (strlen(prop) > 0) {
-        char *saveptr = NULL;
-        char *token = strtok_r(prop, "x", &saveptr);
-        if (token != NULL) {
-            minInputSize.width = atoi(token);
-        }
-        token = strtok_r(NULL, "x", &saveptr);
-        if (token != NULL) {
-            minInputSize.height = atoi(token);
-        }
-    }
-
-    if (minInputSize.width > gCamCapability[cameraId]->picture_sizes_tbl[0].width ||
-        minInputSize.height > gCamCapability[cameraId]->picture_sizes_tbl[0].height) {
-        minInputSize = gCamCapability[cameraId]->picture_sizes_tbl[0];
-    }
-
     /* Add input/output stream configurations for each scalar formats*/
     for (size_t j = 0; j < scalar_formats_count; j++) {
         switch (scalar_formats[j]) {
@@ -12423,17 +12398,6 @@ int QCamera3HardwareInterface::initStaticMetadata(uint32_t cameraId)
                 addStreamConfig(available_stream_configs, scalar_formats[j],
                         gCamCapability[cameraId]->picture_sizes_tbl[i],
                         ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT);
-                /*For below 2 formats we also support i/p streams for reprocessing advertise those*/
-                if (scalar_formats[j] == HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED ||
-                        scalar_formats[j] == HAL_PIXEL_FORMAT_YCbCr_420_888) {
-                     if ((gCamCapability[cameraId]->picture_sizes_tbl[i].width
-                            >= minInputSize.width) || (gCamCapability[cameraId]->
-                            picture_sizes_tbl[i].height >= minInputSize.height)) {
-                         addStreamConfig(available_stream_configs, scalar_formats[j],
-                                 gCamCapability[cameraId]->picture_sizes_tbl[i],
-                                 ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_INPUT);
-                     }
-                }
             }
 
             break;
@@ -12799,8 +12763,9 @@ int QCamera3HardwareInterface::initStaticMetadata(uint32_t cameraId)
     if (supportBurst) {
         available_capabilities.add(ANDROID_REQUEST_AVAILABLE_CAPABILITIES_BURST_CAPTURE);
     }
-    available_capabilities.add(ANDROID_REQUEST_AVAILABLE_CAPABILITIES_PRIVATE_REPROCESSING);
-    available_capabilities.add(ANDROID_REQUEST_AVAILABLE_CAPABILITIES_YUV_REPROCESSING);
+    /* SEC: no PRIVATE/YUV_REPROCESSING: captures without an input buffer fail
+     * in sessions with an input stream (the backend drops the snapshot), and
+     * the HAL already does ZSL for regular captures */
     if (hfrEnable && available_hfr_configs.array()) {
         available_capabilities.add(
                 ANDROID_REQUEST_AVAILABLE_CAPABILITIES_CONSTRAINED_HIGH_SPEED_VIDEO);
@@ -12838,18 +12803,11 @@ int QCamera3HardwareInterface::initStaticMetadata(uint32_t cameraId)
     staticInfo.update(ANDROID_CONTROL_AWB_LOCK_AVAILABLE,
             &awbLockAvailable, 1);
 
-    int32_t max_input_streams = 1;
+    int32_t max_input_streams = 0; /* SEC: no reprocessing */
     staticInfo.update(ANDROID_REQUEST_MAX_NUM_INPUT_STREAMS,
                       &max_input_streams,
                       1);
 
-    /* format of the map is : input format, num_output_formats, outputFormat1,..,outputFormatN */
-    int32_t io_format_map[] = {HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED, 2,
-            HAL_PIXEL_FORMAT_BLOB, HAL_PIXEL_FORMAT_YCbCr_420_888,
-            HAL_PIXEL_FORMAT_YCbCr_420_888, 2, HAL_PIXEL_FORMAT_BLOB,
-            HAL_PIXEL_FORMAT_YCbCr_420_888};
-    staticInfo.update(ANDROID_SCALER_AVAILABLE_INPUT_OUTPUT_FORMATS_MAP,
-                      io_format_map, sizeof(io_format_map)/sizeof(io_format_map[0]));
 
     int32_t max_latency = ANDROID_SYNC_MAX_LATENCY_PER_FRAME_CONTROL;
     staticInfo.update(ANDROID_SYNC_MAX_LATENCY,
@@ -13078,7 +13036,6 @@ int QCamera3HardwareInterface::initStaticMetadata(uint32_t cameraId)
        ANDROID_REQUEST_AVAILABLE_REQUEST_KEYS, ANDROID_REQUEST_AVAILABLE_RESULT_KEYS,
        ANDROID_REQUEST_AVAILABLE_CHARACTERISTICS_KEYS, ANDROID_REQUEST_PARTIAL_RESULT_COUNT,
        ANDROID_SCALER_AVAILABLE_MAX_DIGITAL_ZOOM,
-       ANDROID_SCALER_AVAILABLE_INPUT_OUTPUT_FORMATS_MAP,
        ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS,
        /*ANDROID_SCALER_AVAILABLE_STALL_DURATIONS,*/
        ANDROID_SCALER_AVAILABLE_MIN_FRAME_DURATIONS, ANDROID_SENSOR_FORWARD_MATRIX1,
