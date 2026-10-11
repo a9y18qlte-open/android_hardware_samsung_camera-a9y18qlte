@@ -12259,8 +12259,20 @@ int QCamera3HardwareInterface::initStaticMetadata(uint32_t cameraId)
     count = MIN(gCamCapability[cameraId]->fps_ranges_tbl_cnt, MAX_SIZES_CNT);
     makeFPSTable(gCamCapability[cameraId]->fps_ranges_tbl,
             count, MAX_SIZES_CNT, available_fps_ranges);
+    /* SEC: the backend also lists the high frame rate modes (60 to 240 fps),
+     * but regular sessions run at up to 30 fps; apps asking for more in a
+     * regular session silently get 30. High frame rates are advertised
+     * through the constrained high speed configurations instead. */
+    size_t fps_cnt = 0;
+    for (size_t i = 0; i < count; i++) {
+        if (available_fps_ranges[2 * i + 1] <= TEMPLATE_MAX_PREVIEW_FPS) {
+            available_fps_ranges[2 * fps_cnt] = available_fps_ranges[2 * i];
+            available_fps_ranges[2 * fps_cnt + 1] = available_fps_ranges[2 * i + 1];
+            fps_cnt++;
+        }
+    }
     staticInfo.update(ANDROID_CONTROL_AE_AVAILABLE_TARGET_FPS_RANGES,
-            available_fps_ranges, count * 2);
+            available_fps_ranges, fps_cnt * 2);
 
     camera_metadata_rational exposureCompensationStep = {
             gCamCapability[cameraId]->exp_compensation_step.numerator,
@@ -12450,7 +12462,10 @@ int QCamera3HardwareInterface::initStaticMetadata(uint32_t cameraId)
                 available_min_durations.add(scalar_formats[j]);
                 available_min_durations.add(gCamCapability[cameraId]->picture_sizes_tbl[i].width);
                 available_min_durations.add(gCamCapability[cameraId]->picture_sizes_tbl[i].height);
-                available_min_durations.add(gCamCapability[cameraId]->picture_min_duration[i]);
+                /* SEC: the backend reports the high frame rate mode durations
+                 * (down to 1/240 s), but regular sessions run at up to 30 fps */
+                available_min_durations.add(MAX(gCamCapability[cameraId]->picture_min_duration[i],
+                        (int64_t)(NSEC_PER_SEC / TEMPLATE_MAX_PREVIEW_FPS)));
             }
             break;
         }
