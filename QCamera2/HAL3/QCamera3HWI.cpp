@@ -1360,6 +1360,8 @@ int QCamera3HardwareInterface::validateStreamDimensions(
             inputStream = streamList->streams[i];
         }
     }
+    /* SEC: set again below for every configuration that needs it */
+    m_bQuadraSizeConfigured = false;
     /*
     * Loop through all streams requested in configuration
     * Check if unsupported sizes have been requested on any of them
