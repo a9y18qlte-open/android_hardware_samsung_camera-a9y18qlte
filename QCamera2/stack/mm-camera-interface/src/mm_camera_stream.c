@@ -1363,7 +1363,7 @@ int32_t mm_stream_release(mm_stream_t *my_obj)
 int32_t mm_stream_streamon(mm_stream_t *my_obj)
 {
     int32_t rc = 0;
-    int8_t i;
+    uint32_t i; /* SEC: was int8_t; overflows with MSM_CAMERA_MAX_STREAM_BUF 128 (no HAL3 preview) */
     enum v4l2_buf_type buf_type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
     uint8_t idx = mm_camera_util_get_index_by_num(
             my_obj->ch_obj->cam_obj->my_num, my_obj->my_hdl);
