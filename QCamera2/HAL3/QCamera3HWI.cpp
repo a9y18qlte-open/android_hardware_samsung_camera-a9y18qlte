@@ -11694,6 +11694,41 @@ int QCamera3HardwareInterface::initCapabilities(uint32_t cameraId)
                 raw_dim.width, raw_dim.height);
     }
 
+    /* SEC: the backend has no square size that fits a 1920x1080 preview, so
+     * apps fall back to 176x144 for 1:1. Add 1080x1080. */
+    {
+        cam_capability_t *cap = gCamCapability[cameraId];
+        size_t cnt = MIN(cap->picture_sizes_tbl_cnt, MAX_SIZES_CNT);
+        bool found = false;
+        for (size_t i = 0; i < cnt; i++) {
+            if (cap->picture_sizes_tbl[i].width == cap->picture_sizes_tbl[i].height &&
+                    cap->picture_sizes_tbl[i].width <= 1080) {
+                found = true;
+                break;
+            }
+        }
+        if (!found && cnt > 0 && cnt < MAX_SIZES_CNT &&
+                cap->picture_sizes_tbl[0].height > 1080) {
+            /* keep the table sorted by area, largest first */
+            size_t pos = 0;
+            while (pos < cnt && (int64_t)cap->picture_sizes_tbl[pos].width *
+                    cap->picture_sizes_tbl[pos].height > 1080 * 1080) {
+                pos++;
+            }
+            size_t ref = (pos > 0) ? pos - 1 : 0;
+            for (size_t i = cnt; i > pos; i--) {
+                cap->picture_sizes_tbl[i] = cap->picture_sizes_tbl[i - 1];
+                cap->picture_min_duration[i] = cap->picture_min_duration[i - 1];
+                cap->jpeg_stall_durations[i] = cap->jpeg_stall_durations[i - 1];
+            }
+            cap->picture_sizes_tbl[pos].width = 1080;
+            cap->picture_sizes_tbl[pos].height = 1080;
+            cap->picture_min_duration[pos] = cap->picture_min_duration[ref];
+            cap->jpeg_stall_durations[pos] = cap->jpeg_stall_durations[ref];
+            cap->picture_sizes_tbl_cnt = cnt + 1;
+        }
+    }
+
 failed_op:
     cameraHandle->ops->close_camera(cameraHandle->camera_handle);
     cameraHandle = NULL;
