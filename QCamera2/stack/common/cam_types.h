@@ -56,10 +56,10 @@
 #define IS_VALID_PTR(P) (P != NULL)
 #define IS_EQUAL(X,Y) (X == Y)
 
-#define MAX_ZOOMS_CNT 91
+#define MAX_ZOOMS_CNT 800 /* SEC: CAF 91 */
 #define ZOOM_MIN 4096        // min zoom value: 1x
 #define ZOOM_MAX 4096 * 8 // max zoom value: 8x
-#define MAX_SIZES_CNT 40
+#define MAX_SIZES_CNT 64 /* SEC: CAF 40 */
 #define MAX_EXP_BRACKETING_LENGTH 32
 #define MAX_ROI 10
 #define MAX_STREAM_NUM_IN_BUNDLE 8
@@ -89,7 +89,7 @@
 #define MAX_AF_STATS_DATA_SIZE  1000
 #define MAX_ASD_STATS_DATA_SIZE 1000
 
-#define MAX_CAPTURE_BATCH_NUM 120
+#define MAX_CAPTURE_BATCH_NUM 32 /* SEC: CAF 120 (configFrameCapture memmove 0x510, stride 0x28) */
 
 #define TUNING_DATA_VERSION        6
 #define TUNING_SENSOR_DATA_MAX     0x10000 /*(need value from sensor team)*/
@@ -418,12 +418,16 @@ typedef enum {
     CAM_FORMAT_YUV_444_NV42,
 
     /* Y plane only, used for FD, 8BPP */
+    CAM_FORMAT_SEC_UNK_1, /* SEC: 2 values inserted somewhere in CAF 72..104 (Y_ONLY = 107 in Samsung); exact spot TBD,
+                             so Samsung values of CAF 72..104 formats are uncertain */
+    CAM_FORMAT_SEC_UNK_2,
     CAM_FORMAT_Y_ONLY, //100
 
     /* UBWC format */
     CAM_FORMAT_YUV_420_NV12_UBWC,
 
     CAM_FORMAT_YUV_420_NV21_VENUS,
+    CAM_FORMAT_SEC_UNK_3, /* SEC: 3rd extra value somewhere after NV21_VENUS (=109); exact spot TBD */
 
     /* RGB formats */
     CAM_FORMAT_8888_ARGB,
@@ -451,7 +455,6 @@ typedef enum {
     CAM_FORMAT_DEPTH16,
     CAM_FORMAT_DEPTH8,
     CAM_FORMAT_DEPTH_POINT_CLOUD,
-
     CAM_FORMAT_MAX
 } cam_format_t;
 
@@ -611,7 +614,7 @@ typedef struct {
     uint32_t min_stride;
     uint32_t min_scanline;
     cam_offset_info_t offset_info;
-    uint32_t usage;
+    /* SEC: no "uint32_t usage" (CAF addition) */
 } cam_padding_info_t;
 
 typedef struct {
@@ -672,8 +675,8 @@ typedef enum {
     CAM_HFR_MODE_180FPS,
     CAM_HFR_MODE_210FPS,
     CAM_HFR_MODE_240FPS,
-    CAM_HFR_MODE_480FPS,
-    CAM_HFR_MODE_MAX
+    CAM_HFR_MODE_SEC_UNK_1, /* SEC: one value between 240 and 480 (480FPS = 9) */
+    CAM_HFR_MODE_480FPS,    CAM_HFR_MODE_MAX
 } cam_hfr_mode_t;
 
 typedef struct {
@@ -695,8 +698,8 @@ typedef enum {
     CAM_WB_MODE_TWILIGHT,
     CAM_WB_MODE_SHADE,
     CAM_WB_MODE_MANUAL,
-    CAM_WB_MODE_OFF,
-    CAM_WB_MODE_MAX
+    CAM_WB_MODE_SEC_UNK_1, /* SEC: one value before OFF (OFF = 11) */
+    CAM_WB_MODE_OFF,    CAM_WB_MODE_MAX
 } cam_wb_mode_type;
 
 typedef enum {
@@ -711,14 +714,25 @@ typedef enum {
 
 /* Enum Type for different ISO Mode supported */
 typedef enum {
-    CAM_ISO_MODE_AUTO,
-    CAM_ISO_MODE_DEBLUR,
-    CAM_ISO_MODE_100,
-    CAM_ISO_MODE_200,
-    CAM_ISO_MODE_400,
-    CAM_ISO_MODE_800,
-    CAM_ISO_MODE_1600,
-    CAM_ISO_MODE_3200,
+    /* SEC: 17 values (HAL3 ISO_MODES_MAP: 100=5 200=8 400=11 800=14 1600=15 3200=16);
+     * names of the inserted steps are guesses (1/3-stop ISO steps) */
+    CAM_ISO_MODE_AUTO,          /* 0 */
+    CAM_ISO_MODE_DEBLUR,        /* 1 */
+    CAM_ISO_MODE_SEC_50,        /* 2  SEC (name TBD) */
+    CAM_ISO_MODE_SEC_64,        /* 3  SEC (name TBD) */
+    CAM_ISO_MODE_SEC_80,        /* 4  SEC (name TBD) */
+    CAM_ISO_MODE_100,           /* 5 */
+    CAM_ISO_MODE_SEC_125,       /* 6  SEC (name TBD) */
+    CAM_ISO_MODE_SEC_160,       /* 7  SEC (name TBD) */
+    CAM_ISO_MODE_200,           /* 8 */
+    CAM_ISO_MODE_SEC_250,       /* 9  SEC (name TBD) */
+    CAM_ISO_MODE_SEC_320,       /* 10 SEC (name TBD) */
+    CAM_ISO_MODE_400,           /* 11 */
+    CAM_ISO_MODE_SEC_500,       /* 12 SEC (name TBD) */
+    CAM_ISO_MODE_SEC_640,       /* 13 SEC (name TBD) */
+    CAM_ISO_MODE_800,           /* 14 */
+    CAM_ISO_MODE_1600,          /* 15 */
+    CAM_ISO_MODE_3200,          /* 16 */
     CAM_ISO_MODE_MAX
 } cam_iso_mode_type;
 
@@ -730,7 +744,10 @@ typedef enum {
     CAM_AEC_MODE_USER_METERING,
     CAM_AEC_MODE_SPOT_METERING_ADV,
     CAM_AEC_MODE_CENTER_WEIGHTED_ADV,
-    CAM_AEC_MODE_MAX
+
+    CAM_AEC_MODE_SEC_UNK_1, /* SEC: extra enum value, real name/position TBD */
+    CAM_AEC_MODE_SEC_UNK_2, /* SEC: extra enum value, real name/position TBD */
+    CAM_AEC_MODE_SEC_UNK_3, /* SEC: extra enum value, real name/position TBD */    CAM_AEC_MODE_MAX
 } cam_auto_exposure_mode_type;
 
 /* enum to select AEC convergence type */
@@ -769,7 +786,10 @@ typedef enum {
     CAM_FOCUS_MODE_CONTINOUS_VIDEO,
     CAM_FOCUS_MODE_CONTINOUS_PICTURE,
     CAM_FOCUS_MODE_MANUAL,
-    CAM_FOCUS_MODE_MAX
+
+    CAM_FOCUS_MODE_SEC_UNK_1, /* SEC: extra enum value, real name/position TBD */
+    CAM_FOCUS_MODE_SEC_UNK_2, /* SEC: extra enum value, real name/position TBD */
+    CAM_FOCUS_MODE_SEC_UNK_3, /* SEC: extra enum value, real name/position TBD */    CAM_FOCUS_MODE_MAX
 } cam_focus_mode_type;
 
 typedef enum {
@@ -834,7 +854,8 @@ typedef enum {
     CAM_SCENE_MODE_BARCODE,
     CAM_SCENE_MODE_HDR,
     CAM_SCENE_MODE_AQUA,
-    CAM_SCENE_MODE_MAX
+
+    CAM_SCENE_MODE_SEC_UNK_1, /* SEC: extra enum value, real name/position TBD */    CAM_SCENE_MODE_MAX
 } cam_scene_mode_type;
 
 typedef enum {
@@ -1046,7 +1067,7 @@ typedef enum {
     IS_TYPE_GA_DIS,
     IS_TYPE_EIS_2_0,
     IS_TYPE_EIS_3_0,
-    IS_TYPE_VENDOR_EIS,
+    /* SEC: no IS_TYPE_VENDOR_EIS (IS_TYPE_MAX = 6; is_types arrays 6 entries) */
     IS_TYPE_MAX
 } cam_is_type_t;
 
@@ -1141,11 +1162,13 @@ typedef struct {
         cam_low_light_mode_t low_light_mode;
         cam_capture_manual_3A_t manual_3A_mode;
     };
+    uint8_t sec_unk[8]; /* SEC: entry is 40 B (CAF 32); position of extra 8 B TBD */
 } cam_capture_settings_t;
 
 typedef struct {
     uint32_t num_batch;  /*Number of frames batch requested*/
     cam_capture_settings_t configs[MAX_CAPTURE_BATCH_NUM];
+    uint8_t sec_unk_tail[8]; /* SEC: total 1296 B */
 } cam_capture_frame_config_t;
 
 typedef struct {
@@ -1887,6 +1910,7 @@ typedef struct {
     cam_sub_format_type_t sub_format_type[MAX_NUM_STREAMS];
     cam_frame_margins_t margins[MAX_NUM_STREAMS];
     cam_dimension_t stream_sz_plus_margin[MAX_NUM_STREAMS]; /*stream sizes + margin*/
+    uint8_t sec_unk[64]; /* SEC: 64 B between sync_type and is_secure (is_secure at 584, setStreamConfigure memclr 0x250) */
     uint8_t is_secure;
     uint32_t topology;
 } cam_stream_size_info_t;
@@ -2508,6 +2532,16 @@ typedef enum {
     /*Meta to update dual LED calibration results to app*/
     CAM_INTF_META_LED_CALIB_RESULT,
     /* Dual camera sync parameter */
+    CAM_INTF_SEC_UNK_1,  /* SEC: 10 Samsung ids, exact position within CAF 234..242 TBD */
+    CAM_INTF_SEC_UNK_2,  /* SEC: 10 Samsung ids, exact position within CAF 234..242 TBD */
+    CAM_INTF_SEC_UNK_3,  /* SEC: 10 Samsung ids, exact position within CAF 234..242 TBD */
+    CAM_INTF_SEC_UNK_4,  /* SEC: 10 Samsung ids, exact position within CAF 234..242 TBD */
+    CAM_INTF_SEC_UNK_5,  /* SEC: 10 Samsung ids, exact position within CAF 234..242 TBD */
+    CAM_INTF_SEC_UNK_6,  /* SEC: 10 Samsung ids, exact position within CAF 234..242 TBD */
+    CAM_INTF_SEC_UNK_7,  /* SEC: 10 Samsung ids, exact position within CAF 234..242 TBD */
+    CAM_INTF_SEC_UNK_8,  /* SEC: 10 Samsung ids, exact position within CAF 234..242 TBD */
+    CAM_INTF_SEC_UNK_9,  /* SEC: 10 Samsung ids, exact position within CAF 234..242 TBD */
+    CAM_INTF_SEC_UNK_10,  /* SEC: 10 Samsung ids, exact position within CAF 234..242 TBD */
     CAM_INTF_PARM_SYNC_DC_PARAMETERS,
     /* AF focus position info */
     CAM_INTF_META_AF_FOCUS_POS,
@@ -2901,6 +2935,7 @@ typedef struct {
     uint32_t burst_cnt;
     uint8_t cur_reproc_count;
     uint8_t total_reproc_count;
+    uint8_t sec_unk[32]; /* SEC: +32 B after rotation (stream_info: reprocess_config at 560, 536 B); position TBD */
 } cam_pp_feature_config_t;
 
 typedef struct {
@@ -3178,7 +3213,7 @@ typedef enum {
 typedef struct {
     int32_t width;
     int32_t height;
-    int32_t opClock;
+    /* SEC: no opClock - RAW_DIMENSION is 8 B (getSensorOutputSize reads w/h @0xc73d8) */
 } cam_sensor_config_t;
 
 typedef struct {

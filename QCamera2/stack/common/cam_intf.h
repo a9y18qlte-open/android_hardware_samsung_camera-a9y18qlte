@@ -258,6 +258,15 @@ typedef struct {
 } cam_jpeg_metadata_t;
 
 /* capability struct definition for HAL 1*/
+/* SEC: Samsung array sizes where the backing enum was extended (enum values TBD) */
+#define SEC_SCENE_MODE_MAX 24   /* CAF CAM_SCENE_MODE_MAX 23 */
+#define SEC_AEC_MODE_MAX   10   /* CAF CAM_AEC_MODE_MAX 7 */
+#define SEC_WB_MODE_MAX    12   /* CAF CAM_WB_MODE_MAX 11 */
+#define SEC_FOCUS_MODE_MAX 12   /* CAF CAM_FOCUS_MODE_MAX 9 */
+#define SEC_HFR_MODE_MAX   10   /* CAF CAM_HFR_MODE_MAX 9 */
+#define SEC_FORMAT_MAX     134  /* CAF CAM_FORMAT_MAX 131 */
+#define SEC_UNK_TAIL       1432 /* 33524..34955 */
+
 struct cam_capability;
 typedef struct cam_capability{
     cam_hal_version_t version;
@@ -292,6 +301,7 @@ typedef struct cam_capability{
 
     size_t fps_ranges_tbl_cnt;                              /* fps ranges table size */
     cam_fps_range_t fps_ranges_tbl[MAX_SIZES_CNT];          /* fps ranges table */
+    uint8_t sec_unk_post_fps[1028];                         /* SEC: unknown, maybe cnt + fps_range[64] */
 
     /* supported antibanding modes */
     size_t supported_antibandings_cnt;
@@ -370,11 +380,12 @@ typedef struct cam_capability{
     cam_dimension_t zzhdr_sizes_tbl[MAX_SIZES_CNT];         /* Table for ZZHDR supported sizes */
 
     uint32_t is_quadracfa_sensor;
-    uint32_t is_quadracfa_insensor;
+    /* SEC: no is_quadracfa_insensor (live: 19804 = quadra_cfa_dim_cnt 1, 19808 = 5664x4248) */
     size_t supported_quadra_cfa_dim_cnt;              /* Number of resolutions in Quadra CFA mode */
     cam_dimension_t quadra_cfa_dim[MAX_SIZES_CNT];    /* Table for Quadra CFA supported sizes */
     cam_format_t quadra_cfa_format;                   /* Quadra CFA output format */
     uint32_t is_remosaic_lib_present;                 /* Flag indicating if remosaic lib present */
+    uint32_t sec_unk_after_remosaic; /* SEC: unknown, live value 1 (20328) */
 
     /* supported preview formats */
     size_t supported_preview_fmt_cnt;
@@ -618,7 +629,7 @@ typedef struct cam_capability{
     uint8_t eeprom_version_info[MAX_EEPROM_VERSION_INFO_LEN];
 
     /* maximum pixel bandwidth shared between cameras */
-    uint64_t max_pixel_bandwidth;
+    uint64_t max_pixel_bandwidth; /* SEC: present at 27640 (getCamInfo resource_cost) */
 
     /* Array of K integers, where K%4==0,
       as a list of rectangles in the pixelArray co-ord system
@@ -655,7 +666,7 @@ typedef struct cam_capability{
     uint8_t dt[MAX_SIZES_CNT];
     cam_format_t supported_meta_raw_fmts[CAM_FORMAT_MAX];
     cam_dimension_t raw_meta_dim[MAX_SIZES_CNT];
-    cam_sub_format_type_t sub_fmt[CAM_FORMAT_SUBTYPE_MAX];
+    cam_sub_format_type_t sub_fmt[2];                         /* SEC: CAF CAM_FORMAT_SUBTYPE_MAX 3 */
     /* Supported IR Mode */
     size_t supported_ir_mode_cnt;
     cam_ir_mode_type_t supported_ir_modes[CAM_IR_MODE_MAX];
@@ -665,6 +676,7 @@ typedef struct cam_capability{
     cam_binning_correction_mode_t supported_binning_modes[CAM_BINNING_CORRECTION_MODE_MAX];
 
     /*camera index*/
+    uint8_t sec_unk_tail[SEC_UNK_TAIL];                     /* SEC: Samsung-only block, TBD */
     uint32_t camera_index;
 
     /*main and aux cam capability*/
@@ -681,7 +693,7 @@ typedef struct cam_capability{
     /*Mono Stats support*/
     uint8_t is_mono_stats_suport;
     uint8_t is_depth_sensor;
-    cam_dimension_t single_isp_max_size;
+    /* SEC: no "cam_dimension_t single_isp_max_size" */
 } cam_capability_t;
 
 typedef enum {
@@ -821,6 +833,7 @@ typedef struct cam_stream_info {
     struct cam_stream_info *aux_str_info;
 
     /* Cache ops for this stream */
+    uint8_t sec_unk_pre_cache_ops[36]; /* SEC: +36 B between is_type and cache_ops; Samsung init writes none of is_secure/noFrameExpected */
     cam_stream_cache_ops_t cache_ops;
 
     /* Specify cam type for this stream */
@@ -834,6 +847,11 @@ typedef struct cam_stream_info {
 /*****************************************************************************
  *                 Code for Domain Socket Based Parameters                   *
  ****************************************************************************/
+/* SEC: Samsung tuning blob at the head of metadata_data_t; internal layout TBD */
+#define SEC_TUNING_SIZE 328104
+#define SEC_META_TAIL (4 + 413448)
+typedef struct { uint8_t raw[SEC_TUNING_SIZE]; } sec_tuning_params_t;
+
 #define INCLUDE(PARAM_ID,DATATYPE,COUNT)  \
         DATATYPE member_variable_##PARAM_ID[ COUNT ]
 
@@ -935,6 +953,7 @@ typedef struct {
  *  ID from (cam_intf_metadata_type_t)                DATATYPE                     COUNT
  **************************************************************************************/
     /* common between HAL1 and HAL3 */
+    INCLUDE(CAM_INTF_META_TUNING_PARAMS,                sec_tuning_params_t,         1); /* SEC: first member */
     INCLUDE(CAM_INTF_META_HISTOGRAM,                    cam_hist_stats_t,               1);
     INCLUDE(CAM_INTF_META_FACE_DETECTION,               cam_face_detection_data_t,      1);
     INCLUDE(CAM_INTF_META_FACE_RECOG,                   cam_face_recog_data_t,          1);
@@ -965,6 +984,7 @@ typedef struct {
     INCLUDE(CAM_INTF_BUF_DIVERT_INFO,                   cam_buf_divert_info_t,          1);
 
     /* Specific to HAL3 */
+    uint8_t sec_pad_a[28]; /* SEC: unread by HAL, 28 B somewhere before CAM_INTF_META_FRAME_NUMBER_VALID */
     INCLUDE(CAM_INTF_META_FRAME_NUMBER_VALID,           int32_t,                     1);
     INCLUDE(CAM_INTF_META_URGENT_FRAME_NUMBER_VALID,    int32_t,                     1);
     INCLUDE(CAM_INTF_META_FRAME_DROPPED,                cam_stream_ID_t,             1);
@@ -1023,6 +1043,7 @@ typedef struct {
     INCLUDE(CAM_INTF_META_TONEMAP_CURVES,               cam_rgb_tonemap_curves,      1);
     INCLUDE(CAM_INTF_META_LENS_SHADING_MAP,             cam_lens_shading_map_t,      1);
     INCLUDE(CAM_INTF_META_AEC_INFO,                     cam_3a_params_t,             1);
+    uint8_t sec_pad_b_aec_info_growth[1608]; /* SEC: unread by HAL, 1608 B somewhere before CAM_INTF_META_SENSOR_INFO */
     INCLUDE(CAM_INTF_META_SENSOR_INFO,                  cam_sensor_params_t,         1);
     INCLUDE(CAM_INTF_META_EXIF_DEBUG_AE,                cam_ae_exif_debug_t,         1);
     INCLUDE(CAM_INTF_META_EXIF_DEBUG_AWB,               cam_awb_exif_debug_t,        1);
@@ -1082,6 +1103,7 @@ typedef struct {
     INCLUDE(CAM_INTF_PARM_AF_ROI,                       cam_roi_info_t,              1);
     INCLUDE(CAM_INTF_PARM_SCE_FACTOR,                   int32_t,                     1);
     INCLUDE(CAM_INTF_PARM_FD,                           cam_fd_set_parm_t,           1);
+    uint8_t sec_pad_c_fd_parm_growth[4]; /* SEC: unread by HAL, 4 B somewhere before CAM_INTF_PARM_MCE */
     INCLUDE(CAM_INTF_PARM_MCE,                          int32_t,                     1);
     INCLUDE(CAM_INTF_PARM_HFR,                          int32_t,                     1);
     INCLUDE(CAM_INTF_PARM_REDEYE_REDUCTION,             int32_t,                     1);
@@ -1107,6 +1129,7 @@ typedef struct {
     INCLUDE(CAM_INTF_PARM_WB_MANUAL,                    cam_manual_wb_parm_t,        1);
     INCLUDE(CAM_INTF_PARM_CDS_MODE,                     int32_t,                     1);
     INCLUDE(CAM_INTF_PARM_EZTUNE_CMD,                   cam_eztune_cmd_data_t,       1);
+    uint8_t sec_pad_d_eztune_growth[24]; /* SEC: unread by HAL, 24 B somewhere before CAM_INTF_PARM_INT_EVT */
     INCLUDE(CAM_INTF_PARM_INT_EVT,                      cam_int_evt_params_t,        1);
     INCLUDE(CAM_INTF_PARM_RDI_MODE,                     int32_t,                     1);
     INCLUDE(CAM_INTF_PARM_BURST_NUM,                    uint32_t,                    1);
@@ -1124,6 +1147,7 @@ typedef struct {
     INCLUDE(CAM_INTF_PARM_SKIP_FINE_SCAN,               int32_t,                     1);
 
     /* HAL3 specific */
+    uint8_t sec_pad_e_sec_members[48]; /* SEC: unread by HAL, 48 B somewhere before CAM_INTF_META_STREAM_INFO */
     INCLUDE(CAM_INTF_META_STREAM_INFO,                  cam_stream_size_info_t,      1);
     INCLUDE(CAM_INTF_META_AEC_MODE,                     uint32_t,                    1);
     INCLUDE(CAM_INTF_META_AEC_CONVERGENCE_SPEED,        float,                       1);
@@ -1163,6 +1187,7 @@ typedef struct {
     INCLUDE(CAM_INTF_PARM_CAPTURE_FRAME_CONFIG,         cam_capture_frame_config_t,  1);
     INCLUDE(CAM_INTF_PARM_CUSTOM,                       custom_parm_buffer_t,        1);
     INCLUDE(CAM_INTF_PARM_FLIP,                         int32_t,                     1);
+    uint8_t sec_pad_f_sec_block[5320]; /* SEC: unread by HAL, 5320 B somewhere before CAM_INTF_META_USE_AV_TIMER */
     INCLUDE(CAM_INTF_META_USE_AV_TIMER,                 uint8_t,                     1);
     INCLUDE(CAM_INTF_META_EFFECTIVE_EXPOSURE_FACTOR,    float,                       1);
     INCLUDE(CAM_INTF_META_LDAF_EXIF,                    uint32_t,                    2);
@@ -1196,11 +1221,13 @@ typedef struct {
     INCLUDE(CAM_INTF_META_RTB_DATA,                     cam_rtb_msg_type_t,          1);
     INCLUDE(CAM_INTF_META_DC_CAPTURE,                   uint8_t,                     1);
     INCLUDE(CAM_INTF_PARM_BOKEH_MODE,                   uint8_t,                     1);
-    INCLUDE(CAM_INTF_META_USERZOOM,                     cam_zoom_info_t,             1);
-    INCLUDE(CAM_INTF_META_TUNING_PARAMS,                tuning_params_t,             1);
+    uint8_t member_variable_CAM_INTF_META_USERZOOM[10]; /* SEC: 10 B at 837242 (CAF cam_zoom_info_t 108 B); type TBD */
+    uint8_t sec_member_idx234[8]; /* SEC: read via is_valid[234] at 837252 */
+    /* SEC: TUNING_PARAMS moved to the front of metadata_data_t */
     INCLUDE(CAM_INTF_PARM_CLOSE_HINT,                   uint8_t,                     1);
     INCLUDE(CAM_INTF_META_SEND_IMMEDIATELY,             uint8_t,                     1);
     INCLUDE(CAM_INTF_PARAM_COUNTER,                     uint32_t,                    1);
+    uint8_t sec_tail[SEC_META_TAIL]; /* SEC: Samsung-only tail of metadata_data_t */
 } metadata_data_t;
 
 /* Update clear_metadata_buffer() function when a new is_xxx_valid is added to
