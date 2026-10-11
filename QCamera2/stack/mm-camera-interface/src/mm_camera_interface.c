@@ -2460,6 +2460,7 @@ void get_sensor_info()
  *==========================================================================*/
 void sort_camera_info(int num_cam)
 {
+    if (num_cam > MM_CAMERA_MAX_NUM_SENSORS) num_cam = MM_CAMERA_MAX_NUM_SENSORS;
     int idx = 0, i;
     int8_t is_secure = 0;
     struct camera_info temp_info[MM_CAMERA_MAX_NUM_SENSORS];
@@ -2479,7 +2480,7 @@ void sort_camera_info(int num_cam)
     memset(temp_is_yuv, 0, sizeof(temp_is_yuv));
 
     memset(prop, 0, sizeof(prop));
-    property_get("persist.vendor.camera.expose.aux", prop, "0");
+    property_get("persist.vendor.camera.expose.aux", prop, "1"); /* SEC: aux sensors on by default */
     expose_aux = atoi(prop);
 
     /* Order of the camera exposed is
@@ -2557,37 +2558,11 @@ void sort_camera_info(int num_cam)
         }
     }
 
-    for (i = 0; i < num_cam; i++) {
-        if ((g_cam_ctrl.info[i].facing == CAMERA_FACING_BACK) &&
-            (g_cam_ctrl.cam_type[i] & CAM_TYPE_AUX)
-            && expose_aux) { // Need Main check here after sensor change
-            temp_info[idx] = g_cam_ctrl.info[i];
-            temp_type[idx] = CAM_TYPE_MAIN | CAM_TYPE_AUX;
-            temp_mode[idx] = g_cam_ctrl.cam_mode[i];
-            temp_is_yuv[idx] = g_cam_ctrl.is_yuv[i];
-            cam_idx[idx] = (b_aux_idx << MM_CAMERA_HANDLE_SHIFT_MASK) | b_prime_idx;
-            LOGH("Found Back Main+AUX Camera: i: %d idx: %d", i, idx);
-            memcpy(temp_dev_name[idx],g_cam_ctrl.video_dev_name[i],
-                MM_CAMERA_DEV_NAME_LEN);
-            idx++;
-        }
-    }
+    /* SEC: no logical Main+Aux cameras - only MSM_MAX_CAMERA_SENSORS (5) slots;
+     * Samsung exposes the aux sensors standalone. */
 
-    for (i = 0; i < num_cam; i++) {
-        if ((g_cam_ctrl.info[i].facing == CAMERA_FACING_FRONT) &&
-            (g_cam_ctrl.cam_type[i] & CAM_TYPE_AUX)
-            &&expose_aux) { // Need Main check here after sensor change
-            temp_info[idx] = g_cam_ctrl.info[i];
-            temp_type[idx] = CAM_TYPE_MAIN | CAM_TYPE_AUX;
-            temp_mode[idx] = g_cam_ctrl.cam_mode[i];
-            temp_is_yuv[idx] = g_cam_ctrl.is_yuv[i];
-            cam_idx[idx] = (f_aux_idx << MM_CAMERA_HANDLE_SHIFT_MASK) | f_prime_idx;
-            LOGH("Found Back Main Camera: i: %d idx: %d", i, idx);
-            memcpy(temp_dev_name[idx],g_cam_ctrl.video_dev_name[i],
-                MM_CAMERA_DEV_NAME_LEN);
-            idx++;
-        }
-    }
+    /* SEC: no logical Main+Aux cameras - only MSM_MAX_CAMERA_SENSORS (5) slots;
+     * Samsung exposes the aux sensors standalone. */
 
    /*secure camera*/
    for (i = 0; i < num_cam; i++) {
@@ -2622,6 +2597,7 @@ void sort_camera_info(int num_cam)
         //control camera exposing here.
         g_cam_ctrl.num_cam_to_expose = g_cam_ctrl.num_cam - is_secure;
     }
+    (void)b_prime_idx; (void)b_aux_idx; (void)f_prime_idx; (void)f_aux_idx;
     LOGI("Number of cameras %d sorted %d", num_cam, idx);
     return;
 }
