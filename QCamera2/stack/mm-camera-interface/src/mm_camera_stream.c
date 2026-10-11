@@ -3394,10 +3394,15 @@ int32_t mm_stream_calc_offset_snapshot(cam_format_t fmt,
                 padding->plane_padding);
         offset_y = PAD_TO_SIZE(padding->offset_info.offset_y,
                 padding->plane_padding);
+        /* SEC: the backend reports width/height padding 1; pad the stride to
+         * 32 (VFE write master overruns unaligned lines, e.g. 3672-wide tele)
+         * and the scanline to 4 (CPP writes chroma in row pairs and crosses a
+         * page when height / 2 is odd, e.g. 5664x3186). Same as the former
+         * libmmcamera_interface.so binary patches. */
         stride = PAD_TO_SIZE((dim->width +
-                (2 * offset_x)), padding->width_padding);
+                (2 * offset_x)), (padding->width_padding > CAM_PAD_TO_32 ? padding->width_padding : CAM_PAD_TO_32));
         scanline = PAD_TO_SIZE((dim->height +
-                (2 * offset_y)), padding->height_padding);
+                (2 * offset_y)), (padding->height_padding > CAM_PAD_TO_4 ? padding->height_padding : CAM_PAD_TO_4));
     }
 
     switch (fmt) {
