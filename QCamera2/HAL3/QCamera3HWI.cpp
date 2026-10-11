@@ -11708,25 +11708,18 @@ int QCamera3HardwareInterface::initCapabilities(uint32_t cameraId)
                 raw_dim.width, raw_dim.height);
     }
 
-    /* SEC: the backend has no square size that fits a 1920x1080 preview, so
-     * apps fall back to 176x144 for 1:1. Add 1080x1080. */
     {
         cam_capability_t *cap = gCamCapability[cameraId];
-        size_t cnt = MIN(cap->picture_sizes_tbl_cnt, MAX_SIZES_CNT);
-        bool found = false;
-        for (size_t i = 0; i < cnt; i++) {
-            if (cap->picture_sizes_tbl[i].width == cap->picture_sizes_tbl[i].height &&
-                    cap->picture_sizes_tbl[i].width <= 1080) {
-                found = true;
-                break;
+        /* Insert a size into the picture size table (sorted by area, largest
+         * first), copying the durations of the next larger size */
+        auto addPictureSize = [cap](int32_t w, int32_t h) {
+            size_t cnt = MIN(cap->picture_sizes_tbl_cnt, MAX_SIZES_CNT);
+            if (cnt == 0 || cnt >= MAX_SIZES_CNT) {
+                return;
             }
-        }
-        if (!found && cnt > 0 && cnt < MAX_SIZES_CNT &&
-                cap->picture_sizes_tbl[0].height > 1080) {
-            /* keep the table sorted by area, largest first */
             size_t pos = 0;
             while (pos < cnt && (int64_t)cap->picture_sizes_tbl[pos].width *
-                    cap->picture_sizes_tbl[pos].height > 1080 * 1080) {
+                    cap->picture_sizes_tbl[pos].height > (int64_t)w * h) {
                 pos++;
             }
             size_t ref = (pos > 0) ? pos - 1 : 0;
@@ -11735,11 +11728,33 @@ int QCamera3HardwareInterface::initCapabilities(uint32_t cameraId)
                 cap->picture_min_duration[i] = cap->picture_min_duration[i - 1];
                 cap->jpeg_stall_durations[i] = cap->jpeg_stall_durations[i - 1];
             }
-            cap->picture_sizes_tbl[pos].width = 1080;
-            cap->picture_sizes_tbl[pos].height = 1080;
+            cap->picture_sizes_tbl[pos].width = w;
+            cap->picture_sizes_tbl[pos].height = h;
             cap->picture_min_duration[pos] = cap->picture_min_duration[ref];
             cap->jpeg_stall_durations[pos] = cap->jpeg_stall_durations[ref];
             cap->picture_sizes_tbl_cnt = cnt + 1;
+        };
+        size_t cnt = MIN(cap->picture_sizes_tbl_cnt, MAX_SIZES_CNT);
+        bool hasSquare = false, hasUhd = false;
+        for (size_t i = 0; i < cnt; i++) {
+            const cam_dimension_t &d = cap->picture_sizes_tbl[i];
+            hasSquare |= (d.width == d.height) && (d.width <= 1080);
+            hasUhd |= (d.width == 3840) && (d.height == 2160);
+        }
+
+        /* SEC: the backend has no square size that fits a 1920x1080 preview,
+         * so apps fall back to 176x144 for 1:1. Add 1080x1080. */
+        if (!hasSquare && cnt > 0 && cap->picture_sizes_tbl[0].height > 1080) {
+            addPictureSize(1080, 1080);
+        }
+
+        /* SEC: the backend lists no 3840x2160 size, but has UHD video tuning
+         * (scaled from the binned mode, like stock). Add it to back cameras
+         * that are large enough. */
+        if (!hasUhd && cnt > 0 && cap->position == CAM_POSITION_BACK &&
+                cap->picture_sizes_tbl[0].width >= 3840 &&
+                cap->picture_sizes_tbl[0].height >= 2160) {
+            addPictureSize(3840, 2160);
         }
     }
 

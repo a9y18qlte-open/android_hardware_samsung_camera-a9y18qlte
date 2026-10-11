@@ -62,5 +62,4 @@ adb shell 'setenforce 0; /data/local/tmp/frida-inject32 \
 - names and contents of the Samsung-only blocks and the 10 new
   `CAM_INTF_*` IDs
 - exact positions of the inserted `cam_format_t` values
-- how the stock HAL provides 4K video (not in the backend size table)
 - Samsung's dual-camera / Live Focus path

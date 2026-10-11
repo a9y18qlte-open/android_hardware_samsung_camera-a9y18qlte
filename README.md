@@ -27,8 +27,9 @@ bright scenes; smaller sizes and darker scenes use the binned mode),
 video recording, manual ISO / exposure / white balance / focus, RAW,
 flash modes, all five cameras as standalone camera IDs.
 
-Not done: 4K video (the backend reports no 3840x2160 size), logical
-multi-camera, Samsung-only features (Live Focus, etc.).
+4K video is scaled from the binned mode with the UHD tuning, like stock.
+
+Not done: logical multi-camera, Samsung-only features (Live Focus, etc.).
 
 ## History
 
