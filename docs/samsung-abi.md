@@ -21,10 +21,11 @@ HAL never touches are sized `sec_*` placeholders.
 - larger scene (24), AEC (10), white balance (12), focus (12), HFR (10)
   and format (134) arrays
 - `cam_padding_info_t` without `usage` (28 bytes)
-- no `is_quadracfa_insensor`: the CAF field position holds the quadra CFA
-  dimension count, which made CAF treat the IMX576 as a quad-CFA sensor
-  and cut every picture size to 2832x2124
-- unknown 32-bit field after `is_remosaic_lib_present`
+- `is_quadracfa_insensor` moved after `is_remosaic_lib_present`; at the
+  CAF position is the quadra CFA dimension count, which made CAF treat the
+  IMX576 as a quad-CFA sensor and cut every picture size to 2832x2124.
+  The backend sets it (not `is_quadracfa_sensor`) on the main and front
+  IMX576, whose 5664x4248 mode is remosaiced in the sensor
 - `sub_fmt[2]`, `IS_TYPE_MAX` 6 (no `IS_TYPE_VENDOR_EIS`)
 - no `single_isp_max_size`
 - Samsung-only blocks: 1028 bytes after `fps_ranges_tbl`, 1432 bytes

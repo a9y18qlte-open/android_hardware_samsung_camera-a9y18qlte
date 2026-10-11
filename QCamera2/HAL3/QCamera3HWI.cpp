@@ -597,7 +597,7 @@ QCamera3HardwareInterface::QCamera3HardwareInterface(uint32_t cameraId,
     if (gCamCapability[cameraId]->is_quadracfa_sensor) {
         m_bQuadraCfaSensor = true;
 
-        if (0 /* SEC: no is_quadracfa_insensor */) {
+        if (gCamCapability[cameraId]->is_quadracfa_insensor) {
             m_bInSensorQCFA = true;
         }
 
@@ -5614,12 +5614,12 @@ bool QCamera3HardwareInterface::IsQCFASelected(camera3_capture_request *request)
     for(i = 0; i < request->num_output_buffers; i++)
     {
         const camera3_stream_buffer_t& output = request->output_buffers[i];
+        /* SEC: capture every size above the binned mode in the remosaic mode */
+        cam_dimension_t dim = {(int32_t)output.stream->width,
+                               (int32_t)output.stream->height};
         if(((output.stream->format == HAL_PIXEL_FORMAT_BLOB) ||
             (output.stream->format == HAL_PIXEL_FORMAT_YCbCr_420_888)) &&
-           ((output.stream->width ==
-               (uint32_t)gCamCapability[mCameraId]->quadra_cfa_dim[0].width) &&
-           (output.stream->height ==
-              (uint32_t)gCamCapability[mCameraId]->quadra_cfa_dim[0].height))) {
+           isQuadraSizedDimension(dim)) {
             qcfaReq = true;
         }
     }
@@ -6348,21 +6348,13 @@ cam_dimension_t QCamera3HardwareInterface::getQCFAComapitbleDim(
         return raw_dim;
     }
 
-    float aspectRatio = width/(float)height;
-    float aspectRatioTolerence = 0.04;
+    /* SEC: crop the binned size to the aspect ratio instead of taking the
+     * first smaller picture size, which can be much smaller (2560x1440) */
     cam_dimension_t ret_dim = raw_dim;
-    for(uint32_t i = 0; i < gCamCapability[mCameraId]->picture_sizes_tbl_cnt; i++)
-    {
-        const cam_dimension_t& dim = gCamCapability[mCameraId]->picture_sizes_tbl[i];
-        if((dim.width <= raw_dim.width) && (dim.height <= raw_dim.height))
-        {
-            float ar = dim.width/(float)dim.height;
-            if((ar >= (aspectRatio - aspectRatioTolerence)) &&
-              (ar <= (aspectRatio + aspectRatioTolerence))){
-              ret_dim = dim;
-              break;
-            }
-        }
+    if ((uint64_t)width * raw_dim.height > (uint64_t)height * raw_dim.width) {
+        ret_dim.height = (int32_t)((uint64_t)raw_dim.width * height / width) & ~1;
+    } else {
+        ret_dim.width = (int32_t)((uint64_t)raw_dim.height * width / height) & ~1;
     }
 
     LOGI("changed dimension to %dx%d", ret_dim.width, ret_dim.height);
@@ -11621,7 +11613,8 @@ int QCamera3HardwareInterface::initCapabilities(uint32_t cameraId)
                 sizeof(cam_capability_t));
     }
 
-    if (gCamCapability[cameraId]->is_remosaic_lib_present) { /* SEC: no is_quadracfa_insensor */
+    if (gCamCapability[cameraId]->is_remosaic_lib_present ||
+            gCamCapability[cameraId]->is_quadracfa_insensor) {
         gCamCapability[cameraId]->is_quadracfa_sensor = TRUE;
     }
 
@@ -11637,7 +11630,8 @@ int QCamera3HardwareInterface::initCapabilities(uint32_t cameraId)
 
     if (gCamCapability[cameraId]->is_quadracfa_sensor) {
         LOGI("camera id:%d, quadra cfa sensor.", cameraId);
-        property_get("persist.vendor.camera.quadcfa.pic_size", prop, "quarter");
+        /* SEC: keep the full-size pictures; they are captured in the remosaic mode */
+        property_get("persist.vendor.camera.quadcfa.pic_size", prop, "full");
         if (strlen(prop) > 0 && !strcmp(prop, "quarter")) {
             // overide supported picture size, min_duration, and stall_duration,
             // move to filter_supported_snapshot_dimesion()

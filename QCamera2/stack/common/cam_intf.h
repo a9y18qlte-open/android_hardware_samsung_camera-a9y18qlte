@@ -380,12 +380,12 @@ typedef struct cam_capability{
     cam_dimension_t zzhdr_sizes_tbl[MAX_SIZES_CNT];         /* Table for ZZHDR supported sizes */
 
     uint32_t is_quadracfa_sensor;
-    /* SEC: no is_quadracfa_insensor (live: 19804 = quadra_cfa_dim_cnt 1, 19808 = 5664x4248) */
+    /* SEC: is_quadracfa_insensor moved after is_remosaic_lib_present */
     size_t supported_quadra_cfa_dim_cnt;              /* Number of resolutions in Quadra CFA mode */
     cam_dimension_t quadra_cfa_dim[MAX_SIZES_CNT];    /* Table for Quadra CFA supported sizes */
     cam_format_t quadra_cfa_format;                   /* Quadra CFA output format */
     uint32_t is_remosaic_lib_present;                 /* Flag indicating if remosaic lib present */
-    uint32_t sec_unk_after_remosaic; /* SEC: unknown, live value 1 (20328) */
+    uint32_t is_quadracfa_insensor; /* SEC: moved here (20328) */
 
     /* supported preview formats */
     size_t supported_preview_fmt_cnt;
