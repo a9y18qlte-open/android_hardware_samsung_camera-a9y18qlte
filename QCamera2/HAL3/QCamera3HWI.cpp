@@ -3220,6 +3220,14 @@ int QCamera3HardwareInterface::configureStreamsPerfLocked(
                             mDummyBatchStream.usage |= GRALLOC_USAGE_HW_VIDEO_ENCODER;
                         }
                         bufferCount = MAX_INFLIGHT_REQUESTS;
+                        /* SEC: in high speed sessions up to MAX_INFLIGHT_HFR_REQUESTS
+                         * requests are in flight and every batch carries a preview
+                         * buffer; with only MAX_INFLIGHT_REQUESTS preview buffers
+                         * the framework stalls and whole batches are dropped */
+                        if (streamList->operation_mode ==
+                                CAMERA3_STREAM_CONFIGURATION_CONSTRAINED_HIGH_SPEED_MODE) {
+                            bufferCount += MAX_INFLIGHT_HFR_REQUESTS / 4;
+                        }
                         if (mStreamConfigInfo[index].type[stream_index] ==
                                 CAM_STREAM_TYPE_VIDEO) {
                             if (m_bEis3PropertyEnabled /* hint for EIS 3 needed here */)
