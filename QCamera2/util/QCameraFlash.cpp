@@ -42,6 +42,10 @@ extern "C" {
 
 #define STRING_LENGTH_OF_64_BIT_NUMBER 21
 
+// Samsung's SM5705 flash driver also lights the LED from this node, which is
+// where FlashControl sets the torch level, and CFG_FLASH_OFF does not clear it.
+#define SEC_REAR_FLASH_NODE "/sys/class/camera/flash/rear_flash"
+
 volatile uint32_t gCamHal3LogLevel = 1;
 
 namespace qcamera {
@@ -247,6 +251,15 @@ int32_t QCameraFlash::setFlashMode(const int camera_id, const bool mode)
         } else
         {
             m_flashOn[camera_id] = mode;
+            if (!mode) {
+                int fd = open(SEC_REAR_FLASH_NODE, O_WRONLY | O_CLOEXEC);
+                if (fd >= 0) {
+                    if (write(fd, "0", 1) != 1) {
+                        LOGE("Unable to clear %s", SEC_REAR_FLASH_NODE);
+                    }
+                    close(fd);
+                }
+            }
         }
     }
     return retVal;
