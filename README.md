@@ -96,5 +96,7 @@ PRODUCT_PACKAGES += \
   enum values and vendor tags, and how they were recovered
 - [docs/sensors-eeprom.md](docs/sensors-eeprom.md): sensor modules, buses,
   EEPROM/OTP calibration format, dual-camera calibration
+- [docs/video.md](docs/video.md): sensor modes, 4K, slow motion and the
+  240 fps tuning patch
 - [docs/reverse-engineering.md](docs/reverse-engineering.md): methods and
   [tools/](tools) to reproduce or extend the work

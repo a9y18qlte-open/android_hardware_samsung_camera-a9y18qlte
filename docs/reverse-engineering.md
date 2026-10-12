@@ -36,6 +36,7 @@
 | `tools/frida/meta_live.js` | decode frame number, exposure, ISO, crop for the first frames |
 | `tools/eeprom/eeprom_dump.c` | read the kernel's cached EEPROM/OTP buffer (read-only) |
 | `tools/eeprom/decode_eeprom.py` | check CRCs and decode headers, AF and dual calibration |
+| `tools/chromatix/imx576_e24qs_chromatix-slowmotion.diff` | 240 fps tuning entry for the device tree (see [video.md](video.md)) |
 
 `eeprom_dump.c` is freestanding (raw syscalls, no libc). Build it in ARM
 mode against the kernel uapi headers:
