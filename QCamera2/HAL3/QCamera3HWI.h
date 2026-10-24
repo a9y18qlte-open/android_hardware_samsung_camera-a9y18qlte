@@ -431,6 +431,10 @@ private:
     FSMDB_t *FSM;
     int openCamera();
     int closeCamera();
+    // SEC: VFE admission for concurrent sessions
+    bool acquireVfe();
+    void releaseVfe();
+    int32_t admitVfeConfig(const camera3_stream_configuration_t *streamList);
     int flush(bool restartChannels);
     static size_t calcMaxJpegSize(uint32_t camera_id);
     static void addStreamConfig(Vector<int32_t> &available_stream_configs,
@@ -859,6 +863,10 @@ private:
     float mBokehAfX, mBokehAfY;        // AF region centre, < 0 if none
     float mBokehFaceX, mBokehFaceY;    // largest reported face centre
     nsecs_t mBokehFaceTime;
+
+    // SEC: concurrent sessions: this session holds a VFE, or both of them
+    bool mVfeHeld;
+    bool mVfeBoth;
 
     //for multiframe process capture
     bool mbIsMultiFrameCapture;

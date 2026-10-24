@@ -102,6 +102,17 @@ namespace qcamera {
 #define REGULAR_60FPS_MAX_HEIGHT (1440)
 /* extra preview/video buffers and requests in flight for 60 fps sessions */
 #define REGULAR_60FPS_EXTRA_BUFFERS (4)
+/* SEC: concurrent cameras. The backend has two VFEs. A session takes one,
+ * and a session whose streams are larger than the active array runs the
+ * sensor's full quad-CFA mode, which is wider than one VFE and takes both.
+ * mct's own check refuses the main + front pair outright and is turned off
+ * with persist.camera.mct.multirdi, and the ISP module crashes
+ * (isp_resource_allocate) instead of failing when it runs out of VFEs, so
+ * the HAL admits sessions itself: two at most, or one that needs both. This
+ * counts the bokeh depth session too, which bypasses the camera service. */
+#define MAX_VFE_SESSIONS (2)
+/* resource cost of a session in a single VFE, out of the service's 100 */
+#define VFE_RESOURCE_COST (100 / MAX_VFE_SESSIONS)
 #define MAX_HFR_BATCH_SIZE     (8)
 #define REGIONS_TUPLE_COUNT    5
 #define HDR_PLUS_PERF_TIME_OUT  (7000) // milliseconds
@@ -149,6 +160,10 @@ const camera_metadata_t *gStaticMetadata[MM_CAMERA_MAX_NUM_SENSORS];
 extern pthread_mutex_t gCamLock;
 volatile uint32_t gCamHal3LogLevel = 1;
 extern uint8_t gNumCameraSessions;
+/* SEC: sessions holding a VFE, and those of them holding both (under gVfeLock) */
+static pthread_mutex_t gVfeLock = PTHREAD_MUTEX_INITIALIZER;
+static uint32_t gVfeSessions = 0;
+static uint32_t gVfeBothSessions = 0;
 
 const QCamera3HardwareInterface::QCameraPropMap QCamera3HardwareInterface::CDS_MAP [] = {
     {"On",  CAM_CDS_MODE_ON},
@@ -631,6 +646,8 @@ QCamera3HardwareInterface::QCamera3HardwareInterface(uint32_t cameraId,
     mBokehAfX = mBokehAfY = -1.0f;
     mBokehFaceX = mBokehFaceY = -1.0f;
     mBokehFaceTime = 0;
+    mVfeHeld = false;
+    mVfeBoth = false;
     memset(&mStreamList, 0, sizeof(stream_configuration_t));
     m_bLPMEnabled = false;
     mbIsSWMFNRCapture = false;
@@ -1021,6 +1038,12 @@ int QCamera3HardwareInterface::openCamera(struct hw_device_t **hw_device)
         return PERMISSION_DENIED;
     }
 
+    /* SEC: the camera service maps this to ERROR_MAX_CAMERAS_IN_USE */
+    if (!acquireVfe()) {
+        *hw_device = NULL;
+        return -EUSERS;
+    }
+
     mPerfLockMgr.acquirePerfLock(PERF_LOCK_OPEN_CAMERA);
     LOGI("[KPI Perf]: E PROFILE_OPEN_CAMERA camera id %d",
              mCameraId);
@@ -1048,6 +1071,7 @@ int QCamera3HardwareInterface::openCamera(struct hw_device_t **hw_device)
         }
     } else {
         *hw_device = NULL;
+        releaseVfe();
     }
 
     LOGI("[KPI Perf]: X PROFILE_OPEN_CAMERA camera id %d, rc: %d",
@@ -1294,10 +1318,106 @@ int QCamera3HardwareInterface::closeCamera()
         LOGW("Failed to release flash for camera id: %d",
                 mCameraId);
     }
+    releaseVfe();
     mState = CLOSED;
     LOGI("[KPI Perf]: X PROFILE_CLOSE_CAMERA camera id %d, rc: %d",
          mCameraId, rc);
     return rc;
+}
+
+/*===========================================================================
+ * FUNCTION   : acquireVfe
+ *
+ * DESCRIPTION: SEC: take a VFE for a new session, if one is free and no open
+ *              session holds both
+ *
+ * PARAMETERS : none
+ *
+ * RETURN     : true if the session may open
+ *==========================================================================*/
+bool QCamera3HardwareInterface::acquireVfe()
+{
+    pthread_mutex_lock(&gVfeLock);
+    bool available = gVfeSessions < MAX_VFE_SESSIONS && gVfeBothSessions == 0;
+    if (available) {
+        gVfeSessions++;
+        mVfeHeld = true;
+    }
+    uint32_t sessions = gVfeSessions, both = gVfeBothSessions;
+    pthread_mutex_unlock(&gVfeLock);
+
+    if (!available) {
+        LOGE("camera %d: no VFE free (%u sessions, %u using both)",
+                mCameraId, sessions, both);
+    }
+    return available;
+}
+
+/*===========================================================================
+ * FUNCTION   : releaseVfe
+ *
+ * DESCRIPTION: SEC: give back the VFEs this session holds
+ *
+ * PARAMETERS : none
+ *
+ * RETURN     : none
+ *==========================================================================*/
+void QCamera3HardwareInterface::releaseVfe()
+{
+    pthread_mutex_lock(&gVfeLock);
+    if (mVfeBoth) {
+        gVfeBothSessions--;
+        mVfeBoth = false;
+    }
+    if (mVfeHeld) {
+        gVfeSessions--;
+        mVfeHeld = false;
+    }
+    pthread_mutex_unlock(&gVfeLock);
+}
+
+/*===========================================================================
+ * FUNCTION   : admitVfeConfig
+ *
+ * DESCRIPTION: SEC: refuse a stream configuration that needs both VFEs while
+ *              another session is open. Streams larger than the active array
+ *              run the sensor's full quad-CFA mode, which takes both; high
+ *              speed and vendor sessions are not known to fit one, so they
+ *              take both too.
+ *
+ * PARAMETERS :
+ *   @streamList : streams to be configured
+ *
+ * RETURN     : NO_ERROR, or -EINVAL if the configuration does not fit
+ *==========================================================================*/
+int32_t QCamera3HardwareInterface::admitVfeConfig(
+        const camera3_stream_configuration_t *streamList)
+{
+    const cam_rect_t &active = gCamCapability[mCameraId]->active_array_size;
+    bool both = streamList->operation_mode != CAMERA3_STREAM_CONFIGURATION_NORMAL_MODE;
+    for (size_t i = 0; i < streamList->num_streams && !both; i++) {
+        const camera3_stream_t *stream = streamList->streams[i];
+        both = (int32_t)stream->width > active.width ||
+                (int32_t)stream->height > active.height;
+    }
+
+    pthread_mutex_lock(&gVfeLock);
+    if (both && !mVfeBoth && gVfeSessions > 1) {
+        pthread_mutex_unlock(&gVfeLock);
+        LOGE("camera %d: the streams need both VFEs while another camera is open",
+                mCameraId);
+        return -EINVAL;
+    }
+    if (both != mVfeBoth) {
+        if (both) {
+            gVfeBothSessions++;
+        } else {
+            gVfeBothSessions--;
+        }
+        mVfeBoth = both;
+    }
+    pthread_mutex_unlock(&gVfeLock);
+    return NO_ERROR;
 }
 
 /*===========================================================================
@@ -2050,6 +2170,11 @@ int QCamera3HardwareInterface::configureStreams(
     /* SEC: the depth camera holds ISP resources the new configuration may need */
     if (mBokeh != NULL) {
         mBokeh->stop();
+    }
+
+    rc = admitVfeConfig(streamList);
+    if (rc != NO_ERROR) {
+        return rc;
     }
 
     // Acquire perfLock before configure streams
@@ -14104,24 +14229,25 @@ int QCamera3HardwareInterface::getCamInfo(uint32_t cameraId,
 #endif
     info->static_camera_characteristics = gStaticMetadata[cameraId];
 
-    //For now assume both cameras can operate independently.
-    info->conflicting_devices = NULL;
-    info->conflicting_devices_length = 0;
-
-    //resource cost is 100 * MIN(1.0, m/M),
-    //where m is throughput requirement with maximum stream configuration
-    //and M is CPP maximum throughput.
-    float max_fps = 0.0;
-    for (uint32_t i = 0;
-            i < gCamCapability[cameraId]->fps_ranges_tbl_cnt; i++) {
-        if (max_fps < gCamCapability[cameraId]->fps_ranges_tbl[i].max_fps)
-            max_fps = gCamCapability[cameraId]->fps_ranges_tbl[i].max_fps;
+    /* SEC: sensors that share a CSIPHY and CSID (qcom,csiphy-sd-index in the
+     * device tree) cannot stream together: the front and ultra wide cameras on
+     * PHY 1, the telephoto and depth cameras on PHY 2. */
+    static const char *const kCsiConflicts[] = {NULL, "2", "1", "4", "3"};
+    if (cameraId < sizeof(kCsiConflicts) / sizeof(kCsiConflicts[0]) &&
+            kCsiConflicts[cameraId] != NULL) {
+        info->conflicting_devices = const_cast<char **>(&kCsiConflicts[cameraId]);
+        info->conflicting_devices_length = 1;
+    } else {
+        info->conflicting_devices = NULL;
+        info->conflicting_devices_length = 0;
     }
-    float ratio = 1.0 * MAX_PROCESSED_STREAMS *
-            gCamCapability[cameraId]->active_array_size.width *
-            gCamCapability[cameraId]->active_array_size.height * max_fps /
-            gCamCapability[cameraId]->max_pixel_bandwidth;
-    info->resource_cost = 100 * MIN(1.0, ratio);
+
+    /* SEC: a session takes one of the two VFEs, so two of them fit in the
+     * camera service's budget of 100; the HAL refuses sessions that need both
+     * while another is open (acquireVfe, admitVfeConfig). The CAF formula,
+     * 100 * MIN(1.0, m/M) with m the throughput of the largest stream
+     * configuration and M the CPP's, gives 100 for every camera here. */
+    info->resource_cost = VFE_RESOURCE_COST;
     LOGI("camera %d resource cost is %d", cameraId,
             info->resource_cost);
 
