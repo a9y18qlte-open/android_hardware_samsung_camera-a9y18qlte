@@ -648,6 +648,7 @@ QCamera3HardwareInterface::QCamera3HardwareInterface(uint32_t cameraId,
     mBokehFaceTime = 0;
     mVfeHeld = false;
     mVfeBoth = false;
+    mVfeRemosaic = false;
     memset(&mStreamList, 0, sizeof(stream_configuration_t));
     m_bLPMEnabled = false;
     mbIsSWMFNRCapture = false;
@@ -1365,10 +1366,7 @@ bool QCamera3HardwareInterface::acquireVfe()
 void QCamera3HardwareInterface::releaseVfe()
 {
     pthread_mutex_lock(&gVfeLock);
-    if (mVfeBoth) {
-        gVfeBothSessions--;
-        mVfeBoth = false;
-    }
+    setVfeBothLocked(false, false);
     if (mVfeHeld) {
         gVfeSessions--;
         mVfeHeld = false;
@@ -1377,11 +1375,39 @@ void QCamera3HardwareInterface::releaseVfe()
 }
 
 /*===========================================================================
+ * FUNCTION   : setVfeBothLocked
+ *
+ * DESCRIPTION: SEC: record whether this session holds both VFEs for its
+ *              stream configuration and for a remosaic capture. gVfeLock held.
+ *
+ * PARAMETERS :
+ *   @config   : the stream configuration needs both VFEs
+ *   @remosaic : a remosaic capture runs
+ *
+ * RETURN     : none
+ *==========================================================================*/
+void QCamera3HardwareInterface::setVfeBothLocked(bool config, bool remosaic)
+{
+    bool before = mVfeBoth || mVfeRemosaic;
+    bool after = config || remosaic;
+    mVfeBoth = config;
+    mVfeRemosaic = remosaic;
+    if (after && !before) {
+        gVfeBothSessions++;
+    } else if (!after && before) {
+        gVfeBothSessions--;
+    }
+}
+
+/*===========================================================================
  * FUNCTION   : admitVfeConfig
  *
  * DESCRIPTION: SEC: refuse a stream configuration that needs both VFEs while
- *              another session is open. Streams larger than the active array
- *              run the sensor's full quad-CFA mode, which takes both; high
+ *              another session is open. A stream larger than the active array
+ *              that is not on the quad-CFA path, like 4K PRIVATE video, runs
+ *              the sensor's full mode on both VFEs; JPEG and YUV streams of
+ *              quad-CFA sizes stream in the binned mode on one, and take both
+ *              only for a remosaic capture (reserveVfesForRemosaic). High
  *              speed and vendor sessions are not known to fit one, so they
  *              take both too.
  *
@@ -1397,8 +1423,11 @@ int32_t QCamera3HardwareInterface::admitVfeConfig(
     bool both = streamList->operation_mode != CAMERA3_STREAM_CONFIGURATION_NORMAL_MODE;
     for (size_t i = 0; i < streamList->num_streams && !both; i++) {
         const camera3_stream_t *stream = streamList->streams[i];
-        both = (int32_t)stream->width > active.width ||
-                (int32_t)stream->height > active.height;
+        cam_dimension_t dim = {(int32_t)stream->width, (int32_t)stream->height};
+        bool quadra = (stream->format == HAL_PIXEL_FORMAT_BLOB ||
+                stream->format == HAL_PIXEL_FORMAT_YCbCr_420_888) &&
+                isQuadraSizedDimension(dim);
+        both = !quadra && (dim.width > active.width || dim.height > active.height);
     }
 
     pthread_mutex_lock(&gVfeLock);
@@ -1408,16 +1437,35 @@ int32_t QCamera3HardwareInterface::admitVfeConfig(
                 mCameraId);
         return -EINVAL;
     }
-    if (both != mVfeBoth) {
-        if (both) {
-            gVfeBothSessions++;
-        } else {
-            gVfeBothSessions--;
-        }
-        mVfeBoth = both;
-    }
+    setVfeBothLocked(both, false);
     pthread_mutex_unlock(&gVfeLock);
     return NO_ERROR;
+}
+
+/*===========================================================================
+ * FUNCTION   : reserveVfesForRemosaic
+ *
+ * DESCRIPTION: SEC: a remosaic capture runs the full quad-CFA mode on both
+ *              VFEs. Take them for it while no other session holds one, so no
+ *              camera opens during the capture, or capture in the binned mode
+ *              instead. Requests without remosaic give them back.
+ *
+ * PARAMETERS :
+ *   @remosaic : the request would remosaic
+ *
+ * RETURN     : whether the request remosaics
+ *==========================================================================*/
+bool QCamera3HardwareInterface::reserveVfesForRemosaic(bool remosaic)
+{
+    pthread_mutex_lock(&gVfeLock);
+    if (remosaic && !mVfeRemosaic && gVfeSessions > 1) {
+        LOGI("camera %d: another camera holds a VFE, capturing in the binned mode",
+                mCameraId);
+        remosaic = false;
+    }
+    setVfeBothLocked(mVfeBoth, remosaic);
+    pthread_mutex_unlock(&gVfeLock);
+    return remosaic;
 }
 
 /*===========================================================================
@@ -5950,6 +5998,7 @@ bool QCamera3HardwareInterface::IsQCFASelected(camera3_capture_request *request)
     if (remosaic && mBokeh != NULL) {
         mBokeh->stop();
     }
+    remosaic = reserveVfesForRemosaic(remosaic);
     //ret: fasle for upscaling. true for remosaic
     return remosaic;
 }
@@ -7223,6 +7272,10 @@ int QCamera3HardwareInterface::processCaptureRequest(
 
     /* check if need quadra cfa raw in each capture request */
     m_bQuadraCfaRequest = false;
+    /* SEC: the last remosaic capture blocked until its RAW frame came */
+    if (mVfeRemosaic) {
+        reserveVfesForRemosaic(false);
+    }
     if (m_bQuadraCfaSensor && m_bQuadraSizeConfigured) {
         for (size_t i = 0; i < request->num_output_buffers; i++) {
             const camera3_stream_buffer_t& output = request->output_buffers[i];

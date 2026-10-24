@@ -435,6 +435,8 @@ private:
     bool acquireVfe();
     void releaseVfe();
     int32_t admitVfeConfig(const camera3_stream_configuration_t *streamList);
+    bool reserveVfesForRemosaic(bool remosaic);
+    void setVfeBothLocked(bool config, bool remosaic);
     int flush(bool restartChannels);
     static size_t calcMaxJpegSize(uint32_t camera_id);
     static void addStreamConfig(Vector<int32_t> &available_stream_configs,
@@ -864,9 +866,11 @@ private:
     float mBokehFaceX, mBokehFaceY;    // largest reported face centre
     nsecs_t mBokehFaceTime;
 
-    // SEC: concurrent sessions: this session holds a VFE, or both of them
+    // SEC: concurrent sessions: this session holds a VFE, or both of them for
+    // its stream configuration or for a remosaic capture
     bool mVfeHeld;
     bool mVfeBoth;
+    bool mVfeRemosaic;
 
     //for multiframe process capture
     bool mbIsMultiFrameCapture;

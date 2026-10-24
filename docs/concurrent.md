@@ -9,12 +9,15 @@ s1440p).
 
 ## Limits of the hardware and the backend
 
-- **Two VFEs.** A session takes one. A session whose streams are larger
-  than the active array (2832x2124 on the IMX576 cameras 0 and 1) runs the
-  sensor's full 5664x4248 quad-CFA mode, which is wider than one VFE: the
-  ISP module asks for both (`isp_resource_reserve_isp: ... request_dual_isp
-  1`). The other sensors run their full size on one VFE. 1080p60 and
-  1440p60 on the IMX576 (res 1) take one.
+- **Two VFEs.** A session takes one. On the IMX576 cameras 0 and 1, a
+  PRIVATE stream larger than the active array (2832x2124), like 4K video,
+  runs a mode wider than one VFE and the ISP module asks for both
+  (`isp_resource_reserve_isp: ... request_dual_isp 1`). JPEG and YUV
+  streams of those sizes take the quad-CFA path: they stream in the binned
+  mode on one VFE (4K and 5664x4248 YUV, 24 MP JPEG sessions) and take both
+  only while a remosaic capture runs the full 5664x4248 mode. The other
+  sensors run their full size on one VFE. 1080p60 and 1440p60 on the IMX576
+  (res 1) take one.
 - **Shared CSI receivers.** The device tree puts two sensors on each of
   CSIPHY/CSID 1 and 2:
 
@@ -49,8 +52,12 @@ s1440p).
   camera service reports as `ERROR_MAX_CAMERAS_IN_USE`, as the AOSP page
   asks of HALs that cannot run all open cameras at once.
 - `admitVfeConfig()` on configure: a configuration with a stream larger
-  than the active array, or a high speed or vendor session (not known to
-  fit one VFE), fails with `EINVAL` while another session is open.
+  than the active array that is not on the quad-CFA path, or a high speed or
+  vendor session (not known to fit one VFE), fails with `EINVAL` while
+  another session is open.
+- `reserveVfesForRemosaic()` per still: a remosaic capture takes both VFEs
+  while no other session holds one, so no camera opens during it; with
+  another camera open the still is captured in the binned mode, upscaled.
 - The bokeh depth session opens through the same path and counts too; bokeh
   runs only with streams up to 1920x1440, which take one VFE.
 
