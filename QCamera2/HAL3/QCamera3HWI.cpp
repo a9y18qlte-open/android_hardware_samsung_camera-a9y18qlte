@@ -5901,6 +5901,21 @@ bool QCamera3HardwareInterface::IsQCFASelected(camera3_capture_request *request)
         LOGE("Invalid check !!");
         return false;
     }
+    /* SEC: a remosaic capture reconfigures the streams and blocks until its RAW
+     * frame arrives, so it is for stills only: repeating preview or record
+     * requests on a YUV stream above the binned size would each wait for one
+     * and stall the session. Those use the binned mode, upscaled. JPEG
+     * requests are stills; a request without settings keeps the last intent. */
+    uint8_t captureIntent = mCaptureIntent;
+    camera_metadata_ro_entry_t intentEntry;
+    if (request->settings != NULL &&
+            find_camera_metadata_ro_entry(request->settings, ANDROID_CONTROL_CAPTURE_INTENT,
+                    &intentEntry) == 0 && intentEntry.count > 0) {
+        captureIntent = intentEntry.data.u8[0];
+    }
+    bool stillIntent = captureIntent == ANDROID_CONTROL_CAPTURE_INTENT_STILL_CAPTURE ||
+            captureIntent == ANDROID_CONTROL_CAPTURE_INTENT_ZERO_SHUTTER_LAG;
+
     bool qcfaReq = false;
     size_t i = 0;
     for(i = 0; i < request->num_output_buffers; i++)
@@ -5910,7 +5925,7 @@ bool QCamera3HardwareInterface::IsQCFASelected(camera3_capture_request *request)
         cam_dimension_t dim = {(int32_t)output.stream->width,
                                (int32_t)output.stream->height};
         if(((output.stream->format == HAL_PIXEL_FORMAT_BLOB) ||
-            (output.stream->format == HAL_PIXEL_FORMAT_YCbCr_420_888)) &&
+            (output.stream->format == HAL_PIXEL_FORMAT_YCbCr_420_888 && stillIntent)) &&
            isQuadraSizedDimension(dim)) {
             qcfaReq = true;
         }
