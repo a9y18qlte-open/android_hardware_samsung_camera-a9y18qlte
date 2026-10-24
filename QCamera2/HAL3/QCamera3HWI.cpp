@@ -13084,12 +13084,17 @@ int QCamera3HardwareInterface::initStaticMetadata(uint32_t cameraId)
             bokehSupported ? 4 : 3);
 
     if (bokehSupported) {
-        /* bokeh is applied to stills only; streams up to this size may run alongside */
+        /* bokeh is applied to stills only; streams up to this size may run alongside.
+         * Bokeh stills are captured in the binned mode, so the largest size within
+         * the active array: larger ones only upscale it, and a session with them
+         * remosaics its other stills, after which the backend exposes bright
+         * binned stills for the remosaic mode, about 1.3 EV too bright. */
+        const cam_rect_t &aa = gCamCapability[cameraId]->active_array_size;
         int32_t bokehW = 0, bokehH = 0;
         for (size_t i = 0; i < gCamCapability[cameraId]->picture_sizes_tbl_cnt &&
                 i < MAX_SIZES_CNT; i++) {
             const cam_dimension_t &d = gCamCapability[cameraId]->picture_sizes_tbl[i];
-            if (d.width <= 1920 && d.height <= 1440 &&
+            if (d.width <= aa.width && d.height <= aa.height &&
                     (int64_t)d.width * d.height > (int64_t)bokehW * bokehH) {
                 bokehW = d.width;
                 bokehH = d.height;
