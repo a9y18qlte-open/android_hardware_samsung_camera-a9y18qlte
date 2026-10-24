@@ -12101,6 +12101,22 @@ int QCamera3HardwareInterface::initCapabilities(uint32_t cameraId)
                 }
             }
         }
+
+        /* SEC: concurrent streaming guarantees YUV, PRIV and JPEG streams of
+         * s1440p, which is 1920x1440 on cameras with larger sizes; the ultra
+         * wide, telephoto and depth cameras have none between 2560x1440 and
+         * 1920x1080. All the sensors are 4:3. */
+        if (cnt > 0 && (int64_t)cap->picture_sizes_tbl[0].width *
+                cap->picture_sizes_tbl[0].height > 1920 * 1440) {
+            bool has1440p = false;
+            for (size_t i = 0; i < MIN(cap->picture_sizes_tbl_cnt, MAX_SIZES_CNT); i++) {
+                has1440p |= cap->picture_sizes_tbl[i].width == 1920 &&
+                        cap->picture_sizes_tbl[i].height == 1440;
+            }
+            if (!has1440p) {
+                addPictureSize(1920, 1440);
+            }
+        }
     }
 
 failed_op:
